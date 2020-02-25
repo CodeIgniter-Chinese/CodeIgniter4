@@ -1,16 +1,18 @@
 <?php namespace Builder;
 
 use CodeIgniter\Database\BaseBuilder;
-use CodeIgniter\Database\MockConnection;
+use CodeIgniter\Test\Mock\MockConnection;
 
-class LimitTest extends \CIUnitTestCase
+class LimitTest extends \CodeIgniter\Test\CIUnitTestCase
 {
 	protected $db;
 
 	//--------------------------------------------------------------------
 
-	public function setUp()
+	protected function setUp(): void
 	{
+		parent::setUp();
+
 		$this->db = new MockConnection([]);
 	}
 
@@ -22,7 +24,7 @@ class LimitTest extends \CIUnitTestCase
 
 		$builder->limit(5);
 
-		$expectedSQL   = "SELECT * FROM \"user\"  LIMIT 5";
+		$expectedSQL = 'SELECT * FROM "user"  LIMIT 5';
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
 	}
@@ -35,7 +37,7 @@ class LimitTest extends \CIUnitTestCase
 
 		$builder->limit(5, 1);
 
-		$expectedSQL   = "SELECT * FROM \"user\"  LIMIT 1, 5";
+		$expectedSQL = 'SELECT * FROM "user"  LIMIT 1, 5';
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
 	}
@@ -48,7 +50,7 @@ class LimitTest extends \CIUnitTestCase
 
 		$builder->limit(5)->offset(1);
 
-		$expectedSQL   = "SELECT * FROM \"user\"  LIMIT 1, 5";
+		$expectedSQL = 'SELECT * FROM "user"  LIMIT 1, 5';
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
 	}

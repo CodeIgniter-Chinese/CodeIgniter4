@@ -2,6 +2,10 @@
 Database Metadata
 #################
 
+.. contents::
+    :local:
+    :depth: 2
+
 **************
 Table MetaData
 **************
@@ -17,12 +21,13 @@ Returns an array containing the names of all the tables in the database
 you are currently connected to. Example::
 
 	$tables = $db->listTables();
-	
+
 	foreach ($tables as $table)
 	{
 		echo $table;
 	}
-
+	
+.. note:: Some drivers have additional system tables that are excluded from this return.
 
 Determine If a Table Exists
 ===========================
@@ -38,7 +43,6 @@ running an operation on it. Returns a boolean TRUE/FALSE. Usage example::
 	}
 
 .. note:: Replace *table_name* with the name of the table you are looking for.
-
 
 **************
 Field MetaData
@@ -56,7 +60,7 @@ two ways:
 object::
 
 	$fields = $db->getFieldNames('table_name');
-	
+
 	foreach ($fields as $field)
 	{
 		echo $field;
@@ -66,12 +70,11 @@ object::
 calling the function from your query result object::
 
 	$query = $db->query('SELECT * FROM some_table');
-	
+
 	foreach ($query->getFieldNames() as $field)
 	{
 		echo $field;
 	}
-
 
 Determine If a Field is Present in a Table
 ==========================================
@@ -90,11 +93,10 @@ performing an action. Returns a boolean TRUE/FALSE. Usage example::
 	for, and replace *table_name* with the name of the table you are
 	looking for.
 
-
 Retrieve Field Metadata
 =======================
 
-**$db->fieldData()**
+**$db->getFieldData()**
 
 Returns an array of objects containing field information.
 
@@ -106,7 +108,7 @@ the column type, max length, etc.
 Usage example::
 
 	$fields = $db->getFieldData('table_name');
-	
+
 	foreach ($fields as $field)
 	{
 		echo $field->name;
@@ -118,7 +120,7 @@ Usage example::
 If you have run a query already you can use the result object instead of
 supplying the table name::
 
-	$query = $db->query("YOUR QUERY");
+	$query  = $db->query("YOUR QUERY");
 	$fields = $query->fieldData();
 
 The following data is available from this function if supported by your
@@ -128,3 +130,46 @@ database:
 -  max_length - maximum length of the column
 -  primary_key - 1 if the column is a primary key
 -  type - the type of the column
+
+List the Indexes in a Table
+===========================
+
+**$db->getIndexData()**
+
+Returns an array of objects containing index information.
+
+Usage example::
+
+	$keys = $db->getIndexData('table_name');
+
+	foreach ($keys as $key)
+	{
+		echo $key->name;
+		echo $key->type;
+		echo $key->fields;  // array of field names
+	}
+
+The key types may be unique to the database you are using.
+For instance, MySQL will return one of primary, fulltext, spatial, index or unique
+for each key associated with a table.
+
+**$db->getForeignKeyData()**
+
+Returns an array of objects containing foreign key information.
+
+Usage example::
+
+	$keys = $db->getForeignKeyData('table_name');
+
+	foreach ($keys as $key)
+	{
+		echo $key->constraint_name;
+		echo $key->table_name;
+		echo $key->column_name;
+		echo $key->foreign_table_name;
+		echo $key->foreign_column_name;
+	}
+
+The object fields may be unique to the database you are using. For instance, SQLite3 does
+not return data on column names, but has the additional *sequence* field for compound
+foreign key definitions.

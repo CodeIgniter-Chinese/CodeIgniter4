@@ -1,52 +1,26 @@
-######################
-CodeIgniter User Guide
-######################
+#######################
+CodeIgniter4 User Guide
+#######################
 
-- :doc:`License Agreement <license>`
-- :doc:`Change Log <changelog>`
-
-.. contents::
-   :local:
-   :depth: 2
-
-*******
-Welcome
-*******
-
-.. toctree::
-	:titlesonly:
-
-	general/welcome
-
-**********
-Basic Info
-**********
-
-- :doc:`general/requirements`
-- :doc:`general/credits`
-
-************
-Installation
-************
 .. toctree::
 	:includehidden:
+        :titlesonly:
+
+        intro/index
+
+***************
+Getting Started
+***************
+
+.. toctree::
 	:maxdepth: 2
 	:titlesonly:
 
 	installation/index
 
-************
-Introduction
-************
-
-.. toctree::
-	:titlesonly:
-
-	overview/index
-
-********
-Tutorial
-********
+****************************
+Build Your First Application
+****************************
 
 .. toctree::
 	:includehidden:
@@ -54,34 +28,36 @@ Tutorial
 
     	tutorial/index
 
-**********************
-Architectural Concepts
-**********************
+*************************
+Overview & General Topics
+*************************
+
 .. toctree::
-   :titlesonly:
+	:titlesonly:
 
-   concepts/index
-
-**************
-General Topics
-**************
+	concepts/index
 
 .. toctree::
 	:titlesonly:
 
 	general/index
 
-*****************
-Library Reference
-*****************
+****************
+Request Handling
+****************
 
 .. toctree::
 	:titlesonly:
 
-	libraries/index
+	incoming/index
+
+.. toctree::
+	:titlesonly:
+
+	outgoing/index
 
 ******************
-Database Reference
+Handling Databases
 ******************
 
 .. toctree::
@@ -89,39 +65,52 @@ Database Reference
 
 	database/index
 
-****************
-Helper Reference
-****************
+.. toctree::
+	:titlesonly:
+
+	models/index
 
 .. toctree::
 	:titlesonly:
 
-	helpers/index
+	dbmgmt/index
+
+
+*******************
+Libraries & Helpers
+*******************
 
 .. toctree::
-    :glob:
 	:titlesonly:
-	:hidden:
 
-	*
-	overview/index
-	general/requirements
-	general/welcome
-	installation/index
-	general/index
 	libraries/index
-	helpers/index
-	database/index
-	tutorial/index
-	general/credits
-
-
-***************************
-Contributing to CodeIgniter
-***************************
 
 .. toctree::
-	:glob:
 	:titlesonly:
 
-   	contributing/index
+	helpers/index
+
+***************
+Advanced Topics
+***************
+
+.. toctree::
+	:titlesonly:
+
+	testing/index
+
+.. toctree::
+	:titlesonly:
+
+	cli/index
+
+.. toctree::
+	:titlesonly:
+
+	extending/index
+
+.. toctree::
+        :hidden:
+
+        license
+        changelogs/index

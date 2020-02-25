@@ -1,4 +1,4 @@
-<?php namespace CodeIgniter\Config;
+<?php
 
 /**
  * CodeIgniter
@@ -7,7 +7,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,18 +28,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	CodeIgniter Dev Team
- * @copyright	Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
- * @since	Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
 
+namespace CodeIgniter\Config;
 
+/**
+ * Environment-specific configuration
+ */
 class DotEnv
 {
+
 	/**
 	 * The directory where the .env file can be located.
 	 *
@@ -54,14 +60,9 @@ class DotEnv
 	 * @param string $path
 	 * @param string $file
 	 */
-	public function __construct(string $path, $file = '.env')
+	public function __construct(string $path, string $file = '.env')
 	{
-		if ( ! is_string($file))
-		{
-			$file = '.env';
-		}
-
-		$this->path = rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file;
+		$this->path = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $file;
 	}
 
 	//--------------------------------------------------------------------
@@ -70,21 +71,48 @@ class DotEnv
 	 * The main entry point, will load the .env file and process it
 	 * so that we end up with all settings in the PHP environment vars
 	 * (i.e. getenv(), $_ENV, and $_SERVER)
+	 *
+	 * @return boolean
 	 */
-	public function load()
+	public function load(): bool
 	{
-		// We don't want to enforce the presence of a .env file,
-		// they should be optional.
-		if ( ! is_file($this->path))
+		$vars = $this->parse();
+
+		if ($vars === null)
 		{
 			return false;
 		}
 
-		// Ensure file is readable
-		if ( ! is_readable($this->path))
+		foreach ($vars as $name => $value)
+		{
+			$this->setVariable($name, $value);
+		}
+
+		return true; // for success
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Parse the .env file into an array of key => value
+	 *
+	 * @return array|null
+	 */
+	public function parse(): ?array
+	{
+		// We don't want to enforce the presence of a .env file, they should be optional.
+		if (! is_file($this->path))
+		{
+			return null;
+		}
+
+		// Ensure the file is readable
+		if (! is_readable($this->path))
 		{
 			throw new \InvalidArgumentException("The .env file is not readable: {$this->path}");
 		}
+
+		$vars = [];
 
 		$lines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
@@ -96,13 +124,15 @@ class DotEnv
 				continue;
 			}
 
-			// If there is an equal sign, then we know we
-			// are assigning a variable.
+			// If there is an equal sign, then we know we are assigning a variable.
 			if (strpos($line, '=') !== false)
 			{
-				$this->setVariable($line);
+				list($name, $value) = $this->normaliseVariable($line);
+				$vars[$name] = $value;
 			}
 		}
+
+		return $vars;
 	}
 
 	//--------------------------------------------------------------------
@@ -117,11 +147,18 @@ class DotEnv
 	 */
 	protected function setVariable(string $name, string $value = '')
 	{
-		list($name, $value) = $this->normaliseVariable($name, $value);
-
-		putenv("$name=$value");
-		$_ENV[$name] = $value;
-		$_SERVER[$name] = $value;
+		if (! getenv($name, true))
+		{
+			putenv("$name=$value");
+		}
+		if (empty($_ENV[$name]))
+		{
+			$_ENV[$name] = $value;
+		}
+		if (empty($_SERVER[$name]))
+		{
+			$_SERVER[$name] = $value;
+		}
 	}
 
 	//--------------------------------------------------------------------
@@ -146,15 +183,18 @@ class DotEnv
 		$name  = trim($name);
 		$value = trim($value);
 
-		// Sanitise the name
+		// Sanitize the name
 		$name = str_replace(['export', '\'', '"'], '', $name);
 
-		// Sanitise the value
-		$value = $this->sanitiseValue($value);
+		// Sanitize the value
+		$value = $this->sanitizeValue($value);
 
 		$value = $this->resolveNestedVariables($value);
 
-		return [$name, $value];
+		return [
+			$name,
+			$value,
+		];
 	}
 
 	//--------------------------------------------------------------------
@@ -170,9 +210,9 @@ class DotEnv
 	 * @return string
 	 * @throws \InvalidArgumentException
 	 */
-	protected function sanitiseValue(string $value): string
+	protected function sanitizeValue(string $value): string
 	{
-		if ( ! $value)
+		if (! $value)
 		{
 			return $value;
 		}
@@ -183,19 +223,18 @@ class DotEnv
 			// value starts with a quote
 			$quote        = $value[0];
 			$regexPattern = sprintf(
-				'/^
-                %1$s          # match a quote at the start of the value
-                (             # capturing sub-pattern used
-                 (?:          # we do not need to capture this
-                  [^%1$s\\\\] # any character other than a quote or backslash
-                  |\\\\\\\\   # or two backslashes together
-                  |\\\\%1$s   # or an escaped quote e.g \"
-                 )*           # as many characters that match the previous rules
-                )             # end of the capturing sub-pattern
-                %1$s          # and the closing quote
-                .*$           # and discard any string after the closing quote
-                /mx',
-				$quote
+					'/^
+					%1$s          # match a quote at the start of the value
+					(             # capturing sub-pattern used
+								  (?:          # we do not need to capture this
+								   [^%1$s\\\\] # any character other than a quote or backslash
+								   |\\\\\\\\   # or two backslashes together
+								   |\\\\%1$s   # or an escaped quote e.g \"
+								  )*           # as many characters that match the previous rules
+					)             # end of the capturing sub-pattern
+					%1$s          # and the closing quote
+					.*$           # and discard any string after the closing quote
+					/mx', $quote
 			);
 			$value        = preg_replace($regexPattern, '$1', $value);
 			$value        = str_replace("\\$quote", $quote, $value);
@@ -240,18 +279,15 @@ class DotEnv
 
 			$value = preg_replace_callback(
 				'/\${([a-zA-Z0-9_]+)}/',
-				function ($matchedPatterns) use ($loader)
-				{
+				function ($matchedPatterns) use ($loader) {
 					$nestedVariable = $loader->getVariable($matchedPatterns[1]);
 
 					if (is_null($nestedVariable))
 					{
 						return $matchedPatterns[0];
 					}
-					else
-					{
-						return $nestedVariable;
-					}
+
+					return $nestedVariable;
 				},
 				$value
 			);
@@ -291,6 +327,4 @@ class DotEnv
 	}
 
 	//--------------------------------------------------------------------
-
 }
-

@@ -1,4 +1,4 @@
-<?php namespace CodeIgniter\Debug\Toolbar\Collectors;
+<?php
 
 /**
  * CodeIgniter
@@ -7,7 +7,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,22 +28,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package      CodeIgniter
- * @author       CodeIgniter Dev Team
- * @copyright    Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license      http://opensource.org/licenses/MIT	MIT License
- * @link         http://codeigniter.com
- * @since        Version 4.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
 
-use CodeIgniter\Services;
+namespace CodeIgniter\Debug\Toolbar\Collectors;
+
+use CodeIgniter\Database\Query;
 
 /**
  * Collector for the Database tab of the Debug Toolbar.
  */
 class Database extends BaseCollector
 {
+
 	/**
 	 * Whether this collector has timeline data.
 	 *
@@ -78,12 +82,45 @@ class Database extends BaseCollector
 	 */
 	protected $connections;
 
+	/**
+	 * The query instances that have been collected
+	 * through the DBQuery Event.
+	 *
+	 * @var array
+	 */
+	protected static $queries = [];
 
 	//--------------------------------------------------------------------
 
+	/**
+	 * Constructor
+	 */
 	public function __construct()
 	{
 		$this->connections = \Config\Database::getConnections();
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * The static method used during Events to collect
+	 * data.
+	 *
+	 * @param \CodeIgniter\Database\Query $query
+	 *
+	 * @internal param $ array \CodeIgniter\Database\Query
+	 */
+	public static function collect(Query $query)
+	{
+		$config = config('Toolbar');
+
+		// Provide default in case it's not set
+		$max = $config->maxQueries ?: 100;
+
+		if (count(static::$queries) < $max)
+		{
+			static::$queries[] = $query;
+		}
 	}
 
 	//--------------------------------------------------------------------
@@ -101,23 +138,21 @@ class Database extends BaseCollector
 		{
 			// Connection Time
 			$data[] = [
-				'name' => 'Connecting to Database: "'.$alias.'"',
+				'name'      => 'Connecting to Database: "' . $alias . '"',
 				'component' => 'Database',
-				'start' => $connection->getConnectStart(),
-				'duration' => $connection->getConnectDuration()
+				'start'     => $connection->getConnectStart(),
+				'duration'  => $connection->getConnectDuration(),
 			];
+		}
 
-			$queries = $connection->getQueries();
-
-			foreach ($queries as $query)
-			{
-				$data[] = [
-					'name' => 'Query',
-				    'component' => 'Database',
-				    'start' => $query->getStartTime(true),
-				    'duration' => $query->getDuration()
-				];
-			}
+		foreach (static::$queries as $query)
+		{
+			$data[] = [
+				'name'      => 'Query',
+				'component' => 'Database',
+				'start'     => $query->getStartTime(true),
+				'duration'  => $query->getDuration(),
+			];
 		}
 
 		return $data;
@@ -126,63 +161,79 @@ class Database extends BaseCollector
 	//--------------------------------------------------------------------
 
 	/**
-	 * Returns the HTML to fill the Database tab in the toolbar.
+	 * Returns the data of this collector to be formatted in the toolbar
 	 *
-	 * @return string The data formatted for the toolbar.
+	 * @return array
 	 */
-	public function display(): string
+	public function display(): array
 	{
-		$output = '';
-
 		// Key words we want bolded
-		$highlight = ['SELECT', 'DISTINCT', 'FROM', 'WHERE', 'AND', 'LEFT&nbsp;JOIN', 'ORDER&nbsp;BY', 'GROUP&nbsp;BY',
-		              'LIMIT', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'OR&nbsp;', 'HAVING', 'OFFSET', 'NOT&nbsp;IN',
-		              'IN', 'LIKE', 'NOT&nbsp;LIKE', 'COUNT', 'MAX', 'MIN', 'ON', 'AS', 'AVG', 'SUM', '(', ')'
+		$highlight = [
+			'SELECT',
+			'DISTINCT',
+			'FROM',
+			'WHERE',
+			'AND',
+			'LEFT&nbsp;JOIN',
+			'RIGHT&nbsp;JOIN',
+			'JOIN',
+			'ORDER&nbsp;BY',
+			'GROUP&nbsp;BY',
+			'LIMIT',
+			'INSERT',
+			'INTO',
+			'VALUES',
+			'UPDATE',
+			'OR&nbsp;',
+			'HAVING',
+			'OFFSET',
+			'NOT&nbsp;IN',
+			'IN',
+			'LIKE',
+			'NOT&nbsp;LIKE',
+			'COUNT',
+			'MAX',
+			'MIN',
+			'ON',
+			'AS',
+			'AVG',
+			'SUM',
+			'(',
+			')',
 		];
 
-		$connectionCount = count($this->connections);
+		$data = [
+			'queries' => [],
+		];
 
-		foreach ($this->connections as $alias => $connection)
+		foreach (static::$queries as $query)
 		{
-			if ($connectionCount > 1)
+			$sql = $query->getQuery();
+
+			foreach ($highlight as $term)
 			{
-				$output .= '<h3>'.$alias.': <span>'.$connection->getPlatform().' '.$connection->getVersion().
-				           '</span></h3>';
+				$sql = str_replace($term, "<strong>{$term}</strong>", $sql);
 			}
 
-			$output .= '<table>';
-
-			$output .= '<thead><tr>';
-			$output .= '<th style="width: 6rem;">Time</th>';
-			$output .= '<th>Query String</th>';
-			$output .= '</tr></thead>';
-
-			$output .= '<body>';
-
-			$queries = $connection->getQueries();
-
-			foreach ($queries as $query)
-			{
-				$output .= '<tr>';
-				$output .='<td class="narrow">'.($query->getDuration(5) * 1000).' ms</td>';
-
-				$sql = $query->getQuery();
-
-				foreach ($highlight as $term)
-				{
-					$sql = str_replace($term, "<strong>{$term}</strong>", $sql);
-				}
-
-				$output .= '<td>'.$sql.'</td>';
-				$output .= '</tr>';
-			}
-
-			$output .= '</body>';
-
-			$output .= '</table>';
+			$data['queries'][] = [
+				'duration' => ($query->getDuration(5) * 1000) . ' ms',
+				'sql'      => $sql,
+			];
 		}
 
-		return $output;
+		return $data;
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Gets the "badge" value for the button.
+	 *
+	 * @return integer
+	 */
+	public function getBadgeValue(): int
+	{
+		return count(static::$queries);
 	}
 
 	//--------------------------------------------------------------------
@@ -194,17 +245,34 @@ class Database extends BaseCollector
 	 */
 	public function getTitleDetails(): string
 	{
-		$queryCount = 0;
-
-		foreach ($this->connections as $connection)
-		{
-			$queryCount += $connection->getQueryCount();
-		}
-
-		return '('.$queryCount.' Queries across '.count($this->connections).' Connection'.
-		       (count($this->connections) > 1 ? 's' : '').')';
+		return '(' . count(static::$queries) . ' Queries across ' . ($countConnection = count($this->connections)) . ' Connection' .
+				($countConnection > 1 ? 's' : '') . ')';
 	}
 
 	//--------------------------------------------------------------------
+
+	/**
+	 * Does this collector have any data collected?
+	 *
+	 * @return boolean
+	 */
+	public function isEmpty(): bool
+	{
+		return empty(static::$queries);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Display the icon.
+	 *
+	 * Icon from https://icons8.com - 1em package
+	 *
+	 * @return string
+	 */
+	public function icon(): string
+	{
+		return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADMSURBVEhLY6A3YExLSwsA4nIycQDIDIhRWEBqamo/UNF/SjDQjF6ocZgAKPkRiFeEhoYyQ4WIBiA9QAuWAPEHqBAmgLqgHcolGQD1V4DMgHIxwbCxYD+QBqcKINseKo6eWrBioPrtQBq/BcgY5ht0cUIYbBg2AJKkRxCNWkDQgtFUNJwtABr+F6igE8olGQD114HMgHIxAVDyAhA/AlpSA8RYUwoeXAPVex5qHCbIyMgwBCkAuQJIY00huDBUz/mUlBQDqHGjgBjAwAAACexpph6oHSQAAAAASUVORK5CYII=';
+	}
 
 }

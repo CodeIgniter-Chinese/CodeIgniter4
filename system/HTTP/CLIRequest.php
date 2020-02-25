@@ -1,5 +1,4 @@
-<?php namespace CodeIgniter\HTTP;
-
+<?php
 /**
  * CodeIgniter
  *
@@ -7,7 +6,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,14 +27,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	CodeIgniter Dev Team
- * @copyright	Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
- * @since	Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
+
+namespace CodeIgniter\HTTP;
 
 use Config\App;
 
@@ -65,15 +67,28 @@ class CLIRequest extends Request
 
 	/**
 	 * Command line options and their values.
+	 *
 	 * @var array
 	 */
 	protected $options = [];
 
+	/**
+	 * Set the expected HTTP verb
+	 *
+	 * @var string
+	 */
+	protected $method = 'cli';
+
 	//--------------------------------------------------------------------
 
+	/**
+	 * Constructor
+	 *
+	 * @param App $config
+	 */
 	public function __construct(App $config)
 	{
-		parent::__construct($config, null);
+		parent::__construct($config);
 
 		// Don't terminate the script when the cli's tty goes away
 		ignore_user_abort(true);
@@ -95,6 +110,8 @@ class CLIRequest extends Request
 	 *
 	 *      // Routes to /users/21/profile (index is removed for routing sake)
 	 *      // with the option foo = bar.
+	 *
+	 * @return string
 	 */
 	public function getPath(): string
 	{
@@ -113,7 +130,19 @@ class CLIRequest extends Request
 	 */
 	public function getOptions(): array
 	{
-	    return $this->options;
+		return $this->options;
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Returns the path segments.
+	 *
+	 * @return array
+	 */
+	public function getSegments(): array
+	{
+		return $this->segments;
 	}
 
 	//--------------------------------------------------------------------
@@ -127,12 +156,7 @@ class CLIRequest extends Request
 	 */
 	public function getOption(string $key)
 	{
-		if (array_key_exists($key, $this->options))
-		{
-			return $this->options[$key];
-		}
-
-		return null;
+		return $this->options[$key] ?? null;
 	}
 
 	//--------------------------------------------------------------------
@@ -153,10 +177,10 @@ class CLIRequest extends Request
 	 */
 	public function getOptionString(): string
 	{
-	    if (empty($this->options))
-	    {
-		    return '';
-	    }
+		if (empty($this->options))
+		{
+			return '';
+		}
 
 		$out = '';
 
@@ -166,13 +190,13 @@ class CLIRequest extends Request
 			// so it will pass correctly.
 			if (strpos($value, ' ') !== false)
 			{
-				$value = '"'. $value .'"';
+				$value = '"' . $value . '"';
 			}
 
 			$out .= "-{$name} $value ";
 		}
 
-		return $out;
+		return trim($out);
 	}
 
 	//--------------------------------------------------------------------
@@ -195,11 +219,11 @@ class CLIRequest extends Request
 		$argv = $this->getServer('argv');
 
 		// We start at 1 since we never want to include index.php
-		for ($i = 1; $i < $argc; $i++)
+		for ($i = 1; $i < $argc; $i ++)
 		{
 			// If there's no '-' at the beginning of the argument
 			// then add it to our segments.
-			if ( ! $options_found && strpos($argv[$i], '-') === false)
+			if (! $options_found && strpos($argv[$i], '-') === false)
 			{
 				$this->segments[] = filter_var($argv[$i], FILTER_SANITIZE_STRING);
 				continue;
@@ -207,19 +231,19 @@ class CLIRequest extends Request
 
 			$options_found = true;
 
-			if (substr($argv[$i], 0, 1) != '-')
+			if (strpos($argv[$i], '-') !== 0)
 			{
 				continue;
 			}
 
-			$arg = filter_var(str_replace('-', '', $argv[$i]), FILTER_SANITIZE_STRING);
+			$arg   = filter_var(str_replace('-', '', $argv[$i]), FILTER_SANITIZE_STRING);
 			$value = null;
 
 			// If the next item starts with a dash it's a value
-			if (isset($argv[$i + 1]) && substr($argv[$i + 1], 0, 1) != '-' )
+			if (isset($argv[$i + 1]) && strpos($argv[$i + 1], '-') !== 0)
 			{
 				$value = filter_var($argv[$i + 1], FILTER_SANITIZE_STRING);
-				$i++;
+				$i ++;
 			}
 
 			$this->options[$arg] = $value;
@@ -227,5 +251,4 @@ class CLIRequest extends Request
 	}
 
 	//--------------------------------------------------------------------
-
 }

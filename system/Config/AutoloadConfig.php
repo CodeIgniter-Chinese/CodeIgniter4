@@ -1,4 +1,4 @@
-<?php namespace CodeIgniter\Config;
+<?php
 
 /**
  * CodeIgniter
@@ -7,7 +7,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,31 +28,45 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	CodeIgniter Dev Team
- * @copyright	Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
- * @since	Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
 
+namespace CodeIgniter\Config;
 
 /**
- * -------------------------------------------------------------------
  * AUTO-LOADER
- * -------------------------------------------------------------------
+ *
  * This file defines the namespaces and class maps so the Autoloader
  * can find the files as needed.
  */
 class AutoloadConfig
 {
+
+	/**
+	 * Array of namespaces for autoloading.
+	 *
+	 * @var array
+	 */
 	public $psr4 = [];
 
+	/**
+	 * Map of class names and locations
+	 *
+	 * @var array
+	 */
 	public $classmap = [];
 
 	//--------------------------------------------------------------------
 
+	/**
+	 * Constructor.
+	 */
 	public function __construct()
 	{
 		/**
@@ -76,8 +91,13 @@ class AutoloadConfig
 		 *   `];
 		 */
 		$this->psr4 = [
-			'CodeIgniter' => realpath(BASEPATH),
+			'CodeIgniter' => realpath(SYSTEMPATH),
 		];
+
+		if (isset($_SERVER['CI_ENVIRONMENT']) && $_SERVER['CI_ENVIRONMENT'] === 'testing')
+		{
+			$this->psr4['Tests\Support'] = SUPPORTPATH;
+		}
 
 		/**
 		 * -------------------------------------------------------------------
@@ -96,67 +116,23 @@ class AutoloadConfig
 		 *   ];
 		 */
 		$this->classmap = [
-			'CodeIgniter\CodeIgniter'                       => BASEPATH.'CodeIgniter.php',
-			'CodeIgniter\CLI\CLI'                           => BASEPATH.'CLI/CLI.php',
-			'CodeIgniter\Loader'                            => BASEPATH.'Loader.php',
-			'CodeIgniter\Controller'                        => BASEPATH.'Controller.php',
-			'CodeIgniter\Config\AutoloadConfig'             => BASEPATH.'Config/Autoload.php',
-			'CodeIgniter\Config\BaseConfig'                 => BASEPATH.'Config/BaseConfig.php',
-			'CodeIgniter\Config\Database'                   => BASEPATH.'Config/Database.php',
-			'CodeIgniter\Config\Database\Connection'        => BASEPATH.'Config/Database/Connection.php',
-			'CodeIgniter\Config\Database\Connection\MySQLi' => BASEPATH.'Config/Database/Connection/MySQLi.php',
-			'CodeIgniter\Config\DotEnv'                     => BASEPATH.'Config/DotEnv.php',
-			'CodeIgniter\Database\BaseBuilder'              => BASEPATH.'Database/BaseBuilder.php',
-			'CodeIgniter\Database\BaseConnection'           => BASEPATH.'Database/BaseConnection.php',
-			'CodeIgniter\Database\BaseResult'               => BASEPATH.'Database/BaseResult.php',
-			'CodeIgniter\Database\Config'                   => BASEPATH.'Database/Config.php',
-			'CodeIgniter\Database\ConnectionInterface'      => BASEPATH.'Database/ConnectionInterface.php',
-			'CodeIgniter\Database\Database'                 => BASEPATH.'Database/Database.php',
-			'CodeIgniter\Database\Query'                    => BASEPATH.'Database/Query.php',
-			'CodeIgniter\Database\QueryInterface'           => BASEPATH.'Database/QueryInterface.php',
-			'CodeIgniter\Database\ResultInterface'          => BASEPATH.'Database/ResultInterface.php',
-			'CodeIgniter\Debug\Exceptions'                  => BASEPATH.'Debug/Exceptions.php',
-			'CodeIgniter\Debug\Timer'                       => BASEPATH.'Debug/Timer.php',
-			'CodeIgniter\Debug\Iterator'                    => BASEPATH.'Debug/Iterator.php',
-			'CodeIgniter\Hooks\Hooks'                       => BASEPATH.'Hooks/Hooks.php',
-			'CodeIgniter\HTTP\CLIRequest'                   => BASEPATH.'HTTP/CLIRequest.php',
-			'CodeIgniter\HTTP\ContentSecurityPolicy'        => BASEPATH.'HTTP/ContentSecurityPolicy.php',
-			'CodeIgniter\HTTP\CURLRequest'                  => BASEPATH.'HTTP/CURLRequest.php',
-			'CodeIgniter\HTTP\IncomingRequest'              => BASEPATH.'HTTP/IncomingRequest.php',
-			'CodeIgniter\HTTP\Message'                      => BASEPATH.'HTTP/Message.php',
-			'CodeIgniter\HTTP\Negotiate'                    => BASEPATH.'HTTP/Negotiate.php',
-			'CodeIgniter\HTTP\Request'                      => BASEPATH.'HTTP/Request.php',
-			'CodeIgniter\HTTP\RequestInterface'             => BASEPATH.'HTTP/RequestInterface.php',
-			'CodeIgniter\HTTP\Response'                     => BASEPATH.'HTTP/Response.php',
-			'CodeIgniter\HTTP\ResponseInterface'            => BASEPATH.'HTTP/ResponseInterface.php',
-			'CodeIgniter\HTTP\URI'                          => BASEPATH.'HTTP/URI.php',
-			'CodeIgniter\Log\Logger'                        => BASEPATH.'Log/Logger.php',
-			'Psr\Log\LoggerAwareInterface'                  => BASEPATH.'Log/LoggerAwareInterface.php',
-			'CodeIgniter\Log\LoggerAwareTrait'              => BASEPATH.'Log/LoggerAwareTrait.php',
-			'Psr\Log\LoggerInterface'                       => BASEPATH.'Log/LoggerInterface.php',
-			'Psr\Log\LogLevel'                              => BASEPATH.'Log/LogLevel.php',
-			'CodeIgniter\Log\Handlers\BaseHandler'          => BASEPATH.'Log/Handlers/BaseHandler.php',
-			'CodeIgniter\Log\Handlers\ChromeLoggerHandler'  => BASEPATH.'Log/Handlers/ChromeLoggerHandler.php',
-			'CodeIgniter\Log\Handlers\FileHandler'          => BASEPATH.'Log/Handlers/FileHandler.php',
-			'CodeIgniter\Log\Handlers\HandlerInterface'     => BASEPATH.'Log/Handlers/HandlerInterface.php',
-			'CodeIgniter\Router\RouteCollection'            => BASEPATH.'Router/RouteCollection.php',
-			'CodeIgniter\Router\RouteCollectionInterface'   => BASEPATH.'Router/RouteCollectionInterface.php',
-			'CodeIgniter\Router\Router'                     => BASEPATH.'Router/Router.php',
-			'CodeIgniter\Router\RouterInterface'            => BASEPATH.'Router/RouterInterface.php',
-			'CodeIgniter\Security\Security'                 => BASEPATH.'Security/Security.php',
-			'CodeIgniter\Session\Session'                   => BASEPATH.'Session/Session.php',
-			'CodeIgniter\Session\SessionInterface'          => BASEPATH.'Session/SessionInterface.php',
-			'CodeIgniter\Session\Handlers\BaseHandler'      => BASEPATH.'Session/Handlers/BaseHandler.php',
-			'CodeIgniter\Session\Handlers\FileHandler'      => BASEPATH.'Session/Handlers/FileHandler.php',
-			'CodeIgniter\Session\Handlers\MemcachedHandler' => BASEPATH.'Session/Handlers/MemcachedHandler.php',
-			'CodeIgniter\Session\Handlers\RedisHandler'     => BASEPATH.'Session/Handlers/RedisHandler.php',
-			'CodeIgniter\View\RenderableInterface'          => BASEPATH.'View/RenderableInterface.php',
-			'CodeIgniter\View\View'                         => BASEPATH.'View/View.php',
-			'Zend\Escaper\Escaper'                          => BASEPATH.'View/Escaper.php',
-			'CodeIgniter\Log\TestLogger'                    => BASEPATH.'../tests/_support/Log/TestLogger.php',
+			'Psr\Log\AbstractLogger'           => SYSTEMPATH . 'ThirdParty/PSR/Log/AbstractLogger.php',
+			'Psr\Log\InvalidArgumentException' => SYSTEMPATH . 'ThirdParty/PSR/Log/InvalidArgumentException.php',
+			'Psr\Log\LoggerAwareInterface'     => SYSTEMPATH . 'ThirdParty/PSR/Log/LoggerAwareInterface.php',
+			'Psr\Log\LoggerAwareTrait'         => SYSTEMPATH . 'ThirdParty/PSR/Log/LoggerAwareTrait.php',
+			'Psr\Log\LoggerInterface'          => SYSTEMPATH . 'ThirdParty/PSR/Log/LoggerInterface.php',
+			'Psr\Log\LoggerTrait'              => SYSTEMPATH . 'ThirdParty/PSR/Log/LoggerTrait.php',
+			'Psr\Log\LogLevel'                 => SYSTEMPATH . 'ThirdParty/PSR/Log/LogLevel.php',
+			'Psr\Log\NullLogger'               => SYSTEMPATH . 'ThirdParty/PSR/Log/NullLogger.php',
+			'Laminas\Escaper\Escaper'          => SYSTEMPATH . 'ThirdParty/Escaper/Escaper.php',
 		];
+
+		if (isset($_SERVER['CI_ENVIRONMENT']) && $_SERVER['CI_ENVIRONMENT'] === 'testing')
+		{
+			$this->classmap['CodeIgniter\Log\TestLogger'] = SYSTEMPATH . 'Test/TestLogger.php';
+			$this->classmap['CIDatabaseTestCase']         = SYSTEMPATH . 'Test/CIDatabaseTestCase.php';
+		}
 	}
 
 	//--------------------------------------------------------------------
-
 }

@@ -1,16 +1,17 @@
 <?php namespace Builder;
 
-use CodeIgniter\Database\BaseBuilder;
-use CodeIgniter\Database\MockConnection;
+use CodeIgniter\Test\Mock\MockConnection;
 
-class AliasTest extends \CIUnitTestCase
+class AliasTest extends \CodeIgniter\Test\CIUnitTestCase
 {
 	protected $db;
 
 	//--------------------------------------------------------------------
 
-	public function setUp()
+	protected function setUp(): void
 	{
+		parent::setUp();
+
 		$this->db = new MockConnection([]);
 	}
 
@@ -20,7 +21,7 @@ class AliasTest extends \CIUnitTestCase
 	{
 		$builder = $this->db->table('jobs j');
 
-		$expectedSQL   = 'SELECT * FROM "jobs" "j"';
+		$expectedSQL = 'SELECT * FROM "jobs" "j"';
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
 	}
@@ -31,7 +32,7 @@ class AliasTest extends \CIUnitTestCase
 	{
 		$builder = $this->db->table(['jobs j', 'users u']);
 
-		$expectedSQL   = 'SELECT * FROM "jobs" "j", "users" "u"';
+		$expectedSQL = 'SELECT * FROM "jobs" "j", "users" "u"';
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
 	}
@@ -42,10 +43,40 @@ class AliasTest extends \CIUnitTestCase
 	{
 		$builder = $this->db->table('jobs j, users u');
 
-		$expectedSQL   = 'SELECT * FROM "jobs" "j", "users" "u"';
+		$expectedSQL = 'SELECT * FROM "jobs" "j", "users" "u"';
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
 	}
 
 	//--------------------------------------------------------------------
+
+	/**
+	 * @see https://github.com/codeigniter4/CodeIgniter4/issues/1599
+	 */
+	public function testAliasLeftJoinWithShortTableName()
+	{
+		$this->setPrivateProperty($this->db, 'DBPrefix', 'db_');
+		$builder = $this->db->table('jobs');
+
+		$builder->join('users as u', 'u.id = jobs.id', 'left');
+
+		$expectedSQL = 'SELECT * FROM "db_jobs" LEFT JOIN "db_users" as "u" ON "u"."id" = "db_jobs"."id"';
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
+	}
+
+	/**
+	 * @see https://github.com/codeigniter4/CodeIgniter4/issues/1599
+	 */
+	public function testAliasLeftJoinWithLongTableName()
+	{
+		$this->setPrivateProperty($this->db, 'DBPrefix', 'db_');
+		$builder = $this->db->table('jobs');
+
+		$builder->join('users as u', 'users.id = jobs.id', 'left');
+
+		$expectedSQL = 'SELECT * FROM "db_jobs" LEFT JOIN "db_users" as "u" ON "db_users"."id" = "db_jobs"."id"';
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
+	}
 }

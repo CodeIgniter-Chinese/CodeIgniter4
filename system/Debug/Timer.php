@@ -1,4 +1,4 @@
-<?php namespace CodeIgniter\Debug;
+<?php
 
 /**
  * CodeIgniter
@@ -7,7 +7,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,14 +28,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	CodeIgniter Dev Team
- * @copyright	Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
- * @since	Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
+
+namespace CodeIgniter\Debug;
 
 /**
  * Class Timer
@@ -65,8 +68,10 @@ class Timer
 	 * Multiple calls can be made to this method so that several
 	 * execution points can be measured.
 	 *
-	 * @param string $name  The name of this timer.
-	 * @param float  $time  Allows user to provide time.
+	 * @param string $name The name of this timer.
+	 * @param float  $time Allows user to provide time.
+	 *
+	 * @return Timer
 	 */
 	public function start(string $name, float $time = null)
 	{
@@ -86,7 +91,9 @@ class Timer
 	 * If the timer is not stopped before the timers() method is called,
 	 * it will be automatically stopped at that point.
 	 *
-	 * @param string $name   The name of this timer.
+	 * @param string $name The name of this timer.
+	 *
+	 * @return Timer
 	 */
 	public function stop(string $name)
 	{
@@ -107,8 +114,8 @@ class Timer
 	/**
 	 * Returns the duration of a recorded timer.
 	 *
-	 * @param     $name         The name of the timer.
-	 * @param int $decimals     Number of decimal places.
+	 * @param string  $name     The name of the timer.
+	 * @param integer $decimals Number of decimal places.
 	 *
 	 * @return null|float       Returns null if timer exists by that name.
 	 *                          Returns a float representing the number of
@@ -116,7 +123,7 @@ class Timer
 	 */
 	public function getElapsedTime(string $name, int $decimals = 4)
 	{
-	    $name = strtolower($name);
+		$name = strtolower($name);
 
 		if (empty($this->timers[$name]))
 		{
@@ -130,7 +137,7 @@ class Timer
 			$timer['end'] = microtime(true);
 		}
 
-		return (float)number_format($timer['end'] - $timer['start'], $decimals);
+		return (float) number_format($timer['end'] - $timer['start'], $decimals);
 	}
 
 	//--------------------------------------------------------------------
@@ -138,11 +145,11 @@ class Timer
 	/**
 	 * Returns the array of timers, with the duration pre-calculated for you.
 	 *
-	 * @param int $decimals     Number of decimal places
+	 * @param integer $decimals Number of decimal places
 	 *
 	 * @return array
 	 */
-	public function getTimers(int $decimals = 4)
+	public function getTimers(int $decimals = 4): array
 	{
 		$timers = $this->timers;
 
@@ -153,7 +160,7 @@ class Timer
 				$timer['end'] = microtime(true);
 			}
 
-			$timer['duration'] = (float)number_format($timer['end'] - $timer['start'], $decimals);
+			$timer['duration'] = (float) number_format($timer['end'] - $timer['start'], $decimals);
 		}
 
 		return $timers;
@@ -161,4 +168,17 @@ class Timer
 
 	//--------------------------------------------------------------------
 
+	/**
+	 * Checks whether or not a timer with the specified name exists.
+	 *
+	 * @param string $name
+	 *
+	 * @return boolean
+	 */
+	public function has(string $name): bool
+	{
+		return array_key_exists(strtolower($name), $this->timers);
+	}
+
+	//--------------------------------------------------------------------
 }

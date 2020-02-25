@@ -1,4 +1,5 @@
-<?php namespace CodeIgniter\HTTP;
+<?php
+
 
 /**
  * CodeIgniter
@@ -7,7 +8,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,17 +29,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package      CodeIgniter
- * @author       CodeIgniter Dev Team
- * @copyright    Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license      http://opensource.org/licenses/MIT	MIT License
- * @link         http://codeigniter.com
- * @since        Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
+
+namespace CodeIgniter\HTTP;
+
+use CodeIgniter\HTTP\Exceptions\HTTPException;
 use CodeIgniter\HTTP\Files\FileCollection;
 use CodeIgniter\HTTP\Files\UploadedFile;
-use CodeIgniter\Services;
+use Config\Services;
 
 /**
  * Class IncomingRequest
@@ -62,19 +68,10 @@ use CodeIgniter\Services;
  * - Upload files, if any (as represented by $_FILES)
  * - Deserialized body binds (generally from $_POST)
  *
- * @package CodeIgniter\HTTPLite
+ * @package CodeIgniter\HTTP
  */
 class IncomingRequest extends Request
 {
-
-	/**
-	 * Parsed input stream data
-	 *
-	 * Parsed from php://input at runtime
-	 *
-	 * @var
-	 */
-	protected $inputStream;
 
 	/**
 	 * Enable CSRF flag
@@ -82,87 +79,198 @@ class IncomingRequest extends Request
 	 * Enables a CSRF cookie token to be set.
 	 * Set automatically based on Config setting.
 	 *
-	 * @var bool
+	 * @var boolean
 	 */
 	protected $enableCSRF = false;
 
 	/**
-	 * A \CodeIgniter\HTTPLite\URI instance.
+	 * A \CodeIgniter\HTTP\URI instance.
 	 *
 	 * @var URI
 	 */
 	public $uri;
 
 	/**
-	 * Set a cookie name prefix if you need to avoid collisions
+	 * File collection
 	 *
-	 * @var string
-	 */
-	protected $cookiePrefix = '';
-
-	/**
-	 * Set to .your-domain.com for site-wide cookies
-	 *
-	 * @var string
-	 */
-	protected $cookieDomain = '';
-
-	/**
-	 * Typically will be a forward slash
-	 *
-	 * @var string
-	 */
-	protected $cookiePath = '/';
-
-	/**
-	 * Cookie will only be set if a secure HTTPS connection exists.
-	 *
-	 * @var bool
-	 */
-	protected $cookieSecure = false;
-
-	/**
-	 * Cookie will only be accessible via HTTP(S) (no javascript)
-	 *
-	 * @var bool
-	 */
-	protected $cookieHTTPOnly = false;
-
-	/**
 	 * @var Files\FileCollection
 	 */
 	protected $files;
 
 	/**
+	 * Negotiator
+	 *
 	 * @var \CodeIgniter\HTTP\Negotiate
 	 */
-	protected $negotiate;
+	protected $negotiator;
+
+	/**
+	 * The default Locale this request
+	 * should operate under.
+	 *
+	 * @var string
+	 */
+	protected $defaultLocale;
+
+	/**
+	 * The current locale of the application.
+	 * Default value is set in Config\App.php
+	 *
+	 * @var string
+	 */
+	protected $locale;
+
+	/**
+	 * Stores the valid locale codes.
+	 *
+	 * @var array
+	 */
+	protected $validLocales = [];
+
+	/**
+	 * Configuration settings.
+	 *
+	 * @var \Config\App
+	 */
+	public $config;
+
+	/**
+	 * Holds the old data from a redirect.
+	 *
+	 * @var array
+	 */
+	protected $oldInput = [];
+
+	/**
+	 * The user agent this request is from.
+	 *
+	 * @var \CodeIgniter\HTTP\UserAgent
+	 */
+	protected $userAgent;
 
 	//--------------------------------------------------------------------
 
-	public function __construct($config, $uri = null, $body = 'php://input')
+	/**
+	 * Constructor
+	 *
+	 * @param object                      $config
+	 * @param \CodeIgniter\HTTP\URI       $uri
+	 * @param string|null                 $body
+	 * @param \CodeIgniter\HTTP\UserAgent $userAgent
+	 */
+	public function __construct($config, URI $uri = null, $body = 'php://input', UserAgent $userAgent)
 	{
 		// Get our body from php://input
-		if ($body == 'php://input')
+		if ($body === 'php://input')
 		{
 			$body = file_get_contents('php://input');
 		}
 
-		$this->body = $body;
+		$this->body      = $body;
+		$this->config    = $config;
+		$this->userAgent = $userAgent;
 
-		parent::__construct($config, $uri);
+		parent::__construct($config);
 
 		$this->populateHeaders();
 
+		// Get our current URI.
+		// NOTE: This WILL NOT match the actual URL in the browser since for
+		// everything this cares about (and the router, etc) is the portion
+		// AFTER the script name. So, if hosted in a sub-folder this will
+		// appear different than actual URL. If you need that, use current_url().
 		$this->uri = $uri;
 
 		$this->detectURI($config->uriProtocol, $config->baseURL);
 
-		$this->cookiePrefix   = $config->cookiePrefix;
-		$this->cookieDomain   = $config->cookieDomain;
-		$this->cookiePath     = $config->cookiePath;
-		$this->cookieSecure   = $config->cookieSecure;
-		$this->cookieHTTPOnly = $config->cookieHTTPOnly;
+		$this->validLocales = $config->supportedLocales;
+
+		$this->detectLocale($config);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Handles setting up the locale, perhaps auto-detecting through
+	 * content negotiation.
+	 *
+	 * @param $config
+	 */
+	public function detectLocale($config)
+	{
+		$this->locale = $this->defaultLocale = $config->defaultLocale;
+
+		if (! $config->negotiateLocale)
+		{
+			return;
+		}
+
+		$this->setLocale($this->negotiate('language', $config->supportedLocales));
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Returns the default locale as set in Config\App.php
+	 *
+	 * @return string
+	 */
+	public function getDefaultLocale(): string
+	{
+		return $this->defaultLocale;
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Gets the current locale, with a fallback to the default
+	 * locale if none is set.
+	 *
+	 * @return string
+	 */
+	public function getLocale(): string
+	{
+		return $this->locale ?? $this->defaultLocale;
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Sets the locale string for this request.
+	 *
+	 * @param string $locale
+	 *
+	 * @return IncomingRequest
+	 */
+	public function setLocale(string $locale)
+	{
+		// If it's not a valid locale, set it
+		// to the default locale for the site.
+		if (! in_array($locale, $this->validLocales))
+		{
+			$locale = $this->defaultLocale;
+		}
+
+		$this->locale = $locale;
+
+		// If the intl extension is loaded, make sure
+		// that we set the locale for it... if not, though,
+		// don't worry about it.
+		// this should not block code coverage thru unit testing
+		// @codeCoverageIgnoreStart
+		try
+		{
+			if (class_exists('\Locale', false))
+			{
+				\Locale::setDefault($locale);
+			}
+		}
+		catch (\Exception $e)
+		{
+		}
+		// @codeCoverageIgnoreEnd
+
+		return $this;
 	}
 
 	//--------------------------------------------------------------------
@@ -170,11 +278,11 @@ class IncomingRequest extends Request
 	/**
 	 * Determines if this request was made from the command line (CLI).
 	 *
-	 * @return bool
+	 * @return boolean
 	 */
 	public function isCLI(): bool
 	{
-		return (PHP_SAPI === 'cli' || defined('STDIN'));
+		return is_cli();
 	}
 
 	//--------------------------------------------------------------------
@@ -182,186 +290,12 @@ class IncomingRequest extends Request
 	/**
 	 * Test to see if a request contains the HTTP_X_REQUESTED_WITH header.
 	 *
-	 * @return bool
+	 * @return boolean
 	 */
 	public function isAJAX(): bool
 	{
 		return ( ! empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-		         strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
-	}
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Fetch an item from GET data.
-	 *
-	 * @param null $index  Index for item to fetch from $_GET.
-	 * @param null $filter A filter name to apply.
-	 *
-	 * @return mixed
-	 */
-	public function getGet($index = null, $filter = null)
-	{
-		return $this->fetchGlobal(INPUT_GET, $index, $filter);
-	}
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Fetch an item from POST.
-	 *
-	 * @param null $index  Index for item to fetch from $_POST.
-	 * @param null $filter A filter name to apply
-	 *
-	 * @return mixed
-	 */
-	public function getPost($index = null, $filter = null)
-	{
-		return $this->fetchGlobal(INPUT_POST, $index, $filter);
-	}
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Fetch an item from POST data with fallback to GET.
-	 *
-	 * @param null $index  Index for item to fetch from $_POST or $_GET
-	 * @param null $filter A filter name to apply
-	 *
-	 * @return mixed
-	 */
-	public function getPostGet($index = null, $filter = null)
-	{
-		// Use $_POST directly here, since filter_has_var only
-		// checks the initial POST data, not anything that might
-		// have been added since.
-		return isset($_POST[$index])
-			? $this->getPost($index, $filter)
-			: $this->getGet($index, $filter);
-	}
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Fetch an item from GET data with fallback to POST.
-	 *
-	 * @param null $index  Index for item to be fetched from $_GET or $_POST
-	 * @param null $filter A filter name to apply
-	 *
-	 * @return mixed
-	 */
-	public function getGetPost($index = null, $filter = null)
-	{
-		// Use $_GET directly here, since filter_has_var only
-		// checks the initial GET data, not anything that might
-		// have been added since.
-		return isset($_GET[$index])
-			? $this->getGet($index, $filter)
-			: $this->getPost($index, $filter);
-	}
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Fetch an item from the COOKIE array.
-	 *
-	 * @param null $index  Index for item to be fetched from $_COOKIE
-	 * @param null $filter A filter name to be applied
-	 *
-	 * @return mixed
-	 */
-	public function getCookie($index = null, $filter = null)
-	{
-		return $this->fetchGlobal(INPUT_COOKIE, $index, $filter);
-	}
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Fetch the user agent string
-	 *
-	 * @param null $filter
-	 */
-	public function getUserAgent($filter = null)
-	{
-		return $this->fetchGlobal(INPUT_SERVER, 'HTTP_USER_AGENT', $filter);
-	}
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Set a cookie
-	 *
-	 * Accepts an arbitrary number of binds (up to 7) or an associateive
-	 * array in the first parameter containing all the values.
-	 *
-	 * @param            $name      Cookie name or array containing binds
-	 * @param string     $value     Cookie value
-	 * @param string     $expire    Cookie expiration time in seconds
-	 * @param string     $domain    Cookie domain (e.g.: '.yourdomain.com')
-	 * @param string     $path      Cookie path (default: '/')
-	 * @param string     $prefix    Cookie name prefix
-	 * @param bool|false $secure    Whether to only transfer cookies via SSL
-	 * @param bool|false $httponly  Whether only make the cookie accessible via HTTP (no javascript)
-	 */
-	public function setCookie(
-		$name,
-		$value = '',
-		$expire = '',
-		$domain = '',
-		$path = '/',
-		$prefix = '',
-		$secure = false,
-		$httponly = false
-	)
-	{
-		if (is_array($name))
-		{
-			// always leave 'name' in last place, as the loop will break otherwise, due to $$item
-			foreach (['value', 'expire', 'domain', 'path', 'prefix', 'secure', 'httponly', 'name'] as $item)
-			{
-				if (isset($name[$item]))
-				{
-					$item = $name[$item];
-				}
-			}
-		}
-
-		if ($prefix === '' && $this->cookiePrefix !== '')
-		{
-			$prefix = $this->cookiePrefix;
-		}
-
-		if ($domain == '' && $this->cookieDomain != '')
-		{
-			$domain = $this->cookieDomain;
-		}
-
-		if ($path === '/' && $this->cookiePath !== '/')
-		{
-			$path = $this->cookiePath;
-		}
-
-		if ($secure === false && $this->cookieSecure === true)
-		{
-			$secure = $this->cookieSecure;
-		}
-
-		if ($httponly === false && $this->cookieHTTPOnly !== false)
-		{
-			$httponly = $this->cookieHTTPOnly;
-		}
-
-		if ( ! is_numeric($expire))
-		{
-			$expire = time() - 86500;
-		}
-		else
-		{
-			$expire = ($expire > 0) ? time() + $expire : 0;
-		}
-
-		setcookie($prefix.$name, $value, $expire, $path, $domain, $secure, $httponly);
+				strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
 	}
 
 	//--------------------------------------------------------------------
@@ -370,11 +304,11 @@ class IncomingRequest extends Request
 	 * Attempts to detect if the current connection is secure through
 	 * a few different methods.
 	 *
-	 * @return bool
+	 * @return boolean
 	 */
 	public function isSecure(): bool
 	{
-		if ( ! empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
+		if (! empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
 		{
 			return true;
 		}
@@ -382,7 +316,7 @@ class IncomingRequest extends Request
 		{
 			return true;
 		}
-		elseif ( ! empty($_SERVER['HTTP_FRONT_END_HTTPS']) && strtolower($_SERVER['HTTP_FRONT_END_HTTPS']) !== 'off')
+		elseif (! empty($_SERVER['HTTP_FRONT_END_HTTPS']) && strtolower($_SERVER['HTTP_FRONT_END_HTTPS']) !== 'off')
 		{
 			return true;
 		}
@@ -391,6 +325,215 @@ class IncomingRequest extends Request
 	}
 
 	//--------------------------------------------------------------------
+
+	/**
+	 * Fetch an item from the $_REQUEST object. This is the simplest way
+	 * to grab data from the request object and can be used in lieu of the
+	 * other get* methods in most cases.
+	 *
+	 * @param string|array|null $index
+	 * @param integer|null      $filter Filter constant
+	 * @param mixed             $flags
+	 *
+	 * @return mixed
+	 */
+	public function getVar($index = null, $filter = null, $flags = null)
+	{
+		return $this->fetchGlobal('request', $index, $filter, $flags);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * A convenience method that grabs the raw input stream and decodes
+	 * the JSON into an array.
+	 *
+	 * If $assoc == true, then all objects in the response will be converted
+	 * to associative arrays.
+	 *
+	 * @param boolean $assoc   Whether to return objects as associative arrays
+	 * @param integer $depth   How many levels deep to decode
+	 * @param integer $options Bitmask of options
+	 *
+	 * @see http://php.net/manual/en/function.json-decode.php
+	 *
+	 * @return mixed
+	 */
+	public function getJSON(bool $assoc = false, int $depth = 512, int $options = 0)
+	{
+		return json_decode($this->body, $assoc, $depth, $options);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * A convenience method that grabs the raw input stream(send method in PUT, PATCH, DELETE) and decodes
+	 * the String into an array.
+	 *
+	 * @return mixed
+	 */
+	public function getRawInput()
+	{
+		parse_str($this->body, $output);
+
+		return $output;
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Fetch an item from GET data.
+	 *
+	 * @param string|array|null $index  Index for item to fetch from $_GET.
+	 * @param integer|null      $filter A filter name to apply.
+	 * @param mixed|null        $flags
+	 *
+	 * @return mixed
+	 */
+	public function getGet($index = null, $filter = null, $flags = null)
+	{
+		return $this->fetchGlobal('get', $index, $filter, $flags);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Fetch an item from POST.
+	 *
+	 * @param string|array|null $index  Index for item to fetch from $_POST.
+	 * @param integer|null      $filter A filter name to apply
+	 * @param mixed             $flags
+	 *
+	 * @return mixed
+	 */
+	public function getPost($index = null, $filter = null, $flags = null)
+	{
+		return $this->fetchGlobal('post', $index, $filter, $flags);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Fetch an item from POST data with fallback to GET.
+	 *
+	 * @param string|array|null $index  Index for item to fetch from $_POST or $_GET
+	 * @param integer|null      $filter A filter name to apply
+	 * @param mixed             $flags
+	 *
+	 * @return mixed
+	 */
+	public function getPostGet($index = null, $filter = null, $flags = null)
+	{
+		// Use $_POST directly here, since filter_has_var only
+		// checks the initial POST data, not anything that might
+		// have been added since.
+		return isset($_POST[$index]) ? $this->getPost($index, $filter, $flags) : $this->getGet($index, $filter, $flags);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Fetch an item from GET data with fallback to POST.
+	 *
+	 * @param string|array|null $index  Index for item to be fetched from $_GET or $_POST
+	 * @param integer|null      $filter A filter name to apply
+	 * @param mixed             $flags
+	 *
+	 * @return mixed
+	 */
+	public function getGetPost($index = null, $filter = null, $flags = null)
+	{
+		// Use $_GET directly here, since filter_has_var only
+		// checks the initial GET data, not anything that might
+		// have been added since.
+		return isset($_GET[$index]) ? $this->getGet($index, $filter, $flags) : $this->getPost($index, $filter, $flags);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Fetch an item from the COOKIE array.
+	 *
+	 * @param string|array|null $index  Index for item to be fetched from $_COOKIE
+	 * @param integer|null      $filter A filter name to be applied
+	 * @param mixed             $flags
+	 *
+	 * @return mixed
+	 */
+	public function getCookie($index = null, $filter = null, $flags = null)
+	{
+		return $this->fetchGlobal('cookie', $index, $filter, $flags);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Fetch the user agent string
+	 *
+	 * @return \CodeIgniter\HTTP\UserAgent
+	 */
+	public function getUserAgent()
+	{
+		return $this->userAgent;
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Attempts to get old Input data that has been flashed to the session
+	 * with redirect_with_input(). It first checks for the data in the old
+	 * POST data, then the old GET data and finally check for dot arrays
+	 *
+	 * @param string $key
+	 *
+	 * @return mixed
+	 */
+	public function getOldInput(string $key)
+	{
+		// If the session hasn't been started, or no
+		// data was previously saved, we're done.
+		if (empty($_SESSION['_ci_old_input']))
+		{
+			return;
+		}
+
+		// Check for the value in the POST array first.
+		if (isset($_SESSION['_ci_old_input']['post'][$key]))
+		{
+			return $_SESSION['_ci_old_input']['post'][$key];
+		}
+
+		// Next check in the GET array.
+		if (isset($_SESSION['_ci_old_input']['get'][$key]))
+		{
+			return $_SESSION['_ci_old_input']['get'][$key];
+		}
+
+		helper('array');
+
+		// Check for an array value in POST.
+		if (isset($_SESSION['_ci_old_input']['post']))
+		{
+			$value = dot_array_search($key, $_SESSION['_ci_old_input']['post']);
+			if (! is_null($value))
+			{
+				return $value;
+			}
+		}
+
+		// Check for an array value in GET.
+		if (isset($_SESSION['_ci_old_input']['get']))
+		{
+			$value = dot_array_search($key, $_SESSION['_ci_old_input']['get']);
+			if (! is_null($value))
+			{
+				return $value;
+			}
+		}
+
+		//      // return null if requested session key not found
+		//      return null;
+	}
 
 	/**
 	 * Returns an array of all files that have been uploaded with this
@@ -402,11 +545,30 @@ class IncomingRequest extends Request
 	{
 		if (is_null($this->files))
 		{
-			// @todo modify to use the Services, at the very least.
 			$this->files = new FileCollection();
 		}
 
-		return $this->files->all();
+		return $this->files->all(); // return all files
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Verify if a file exist, by the name of the input field used to upload it, in the collection
+	 * of uploaded files and if is have been uploaded with multiple option.
+	 *
+	 * @param string $fileID
+	 *
+	 * @return array|null
+	 */
+	public function getFileMultiple(string $fileID)
+	{
+		if (is_null($this->files))
+		{
+			$this->files = new FileCollection();
+		}
+
+		return $this->files->getFileMultiple($fileID);
 	}
 
 	//--------------------------------------------------------------------
@@ -423,13 +585,7 @@ class IncomingRequest extends Request
 	{
 		if (is_null($this->files))
 		{
-			// @todo modify to use the Services, at the very least.
 			$this->files = new FileCollection();
-		}
-
-		if ( ! $this->files->hasFile($fileID))
-		{
-			return null;
 		}
 
 		return $this->files->getFile($fileID);
@@ -442,35 +598,37 @@ class IncomingRequest extends Request
 	 * either provided by the user in the baseURL Config setting, or
 	 * determined from the environment as needed.
 	 *
-	 * @param $protocol
-	 * @param $baseURL
+	 * @param string $protocol
+	 * @param string $baseURL
 	 */
-	protected function detectURI($protocol, $baseURL)
+	protected function detectURI(string $protocol, string $baseURL)
 	{
 		$this->uri->setPath($this->detectPath($protocol));
 
-		// Based on our baseURL provided by the developer (if set)
+		// It's possible the user forgot a trailing slash on their
+		// baseURL, so let's help them out.
+		$baseURL = ! empty($baseURL) ? rtrim($baseURL, '/ ') . '/' : $baseURL;
+
+		// Based on our baseURL provided by the developer
 		// set our current domain name, scheme
-		if ( ! empty($baseURL))
+		if (! empty($baseURL))
 		{
 			$this->uri->setScheme(parse_url($baseURL, PHP_URL_SCHEME));
 			$this->uri->setHost(parse_url($baseURL, PHP_URL_HOST));
 			$this->uri->setPort(parse_url($baseURL, PHP_URL_PORT));
+			$this->uri->resolveRelativeURI(parse_url($baseURL, PHP_URL_PATH));
+
+			// Ensure we have any query vars
+			$this->uri->setQuery($_SERVER['QUERY_STRING'] ?? '');
 		}
 		else
 		{
-			$this->isSecure() ? $this->uri->setScheme('https') : $this->uri->setScheme('http');
-
-			// While both SERVER_NAME and HTTP_HOST are open to security issues,
-			// if we have to choose, we will go with the getServer-controller version first.
-			! empty($_SERVER['SERVER_NAME'])
-				? (isset($_SERVER['SERVER_NAME']) ? $this->uri->setHost($_SERVER['SERVER_NAME']) : null)
-				: (isset($_SERVER['HTTP_HOST']) ? $this->uri->setHost($_SERVER['HTTP_HOST']) : null);
-
-			if ( ! empty($_SERVER['SERVER_PORT']))
+			// @codeCoverageIgnoreStart
+			if (! is_cli())
 			{
-				$this->uri->setPort($_SERVER['SERVER_PORT']);
+				die('You have an empty or invalid base URL. The baseURL value must be set in Config\App.php, or through the .env file.');
 			}
+			// @codeCoverageIgnoreEnd
 		}
 	}
 
@@ -480,11 +638,11 @@ class IncomingRequest extends Request
 	 * Based on the URIProtocol Config setting, will attempt to
 	 * detect the path portion of the current URI.
 	 *
-	 * @param $protocol
+	 * @param string $protocol
 	 *
-	 * @return string|string
+	 * @return string
 	 */
-	public function detectPath($protocol)
+	public function detectPath(string $protocol = ''): string
 	{
 		if (empty($protocol))
 		{
@@ -501,9 +659,7 @@ class IncomingRequest extends Request
 				break;
 			case 'PATH_INFO':
 			default:
-				$path = isset($_SERVER[$protocol])
-					? $_SERVER[$protocol]
-					: $this->parseRequestURI();
+				$path = $this->fetchGlobal('server', $protocol) ?? $this->parseRequestURI();
 				break;
 		}
 
@@ -516,36 +672,32 @@ class IncomingRequest extends Request
 	 * Provides a convenient way to work with the Negotiate class
 	 * for content negotiation.
 	 *
-	 * @param string $type
-	 * @param array  $supported
-	 * @param bool   $strictMatch
+	 * @param string  $type
+	 * @param array   $supported
+	 * @param boolean $strictMatch
 	 *
-	 * @return mixed
+	 * @return string
 	 */
-	public function negotiate(string $type, array $supported, bool $strictMatch = false)
+	public function negotiate(string $type, array $supported, bool $strictMatch = false): string
 	{
-		if (is_null($this->negotiate))
+		if (is_null($this->negotiator))
 		{
-			$this->negotiate = Services::negotiator($this, true);
+			$this->negotiator = Services::negotiator($this, true);
 		}
 
 		switch (strtolower($type))
 		{
 			case 'media':
-				return $this->negotiate->media($supported, $strictMatch);
-				break;
+				return $this->negotiator->media($supported, $strictMatch);
 			case 'charset':
-				return $this->negotiate->charset($supported);
-				break;
+				return $this->negotiator->charset($supported);
 			case 'encoding':
-				return $this->negotiate->encoding($supported);
-				break;
+				return $this->negotiator->encoding($supported);
 			case 'language':
-				return $this->negotiate->language($supported);
-				break;
+				return $this->negotiator->language($supported);
 		}
 
-		throw new \InvalidArgumentException($type.' is not a valid negotiation type.');
+		throw HTTPException::forInvalidNegotiationType($type);
 	}
 
 	//--------------------------------------------------------------------
@@ -558,36 +710,44 @@ class IncomingRequest extends Request
 	 */
 	protected function parseRequestURI(): string
 	{
-		if ( ! isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']))
+		if (! isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']))
 		{
 			return '';
 		}
 
 		// parse_url() returns false if no host is present, but the path or query string
-		// contains a colon followed by a number
-		$parts = parse_url('http://dummy'.$_SERVER['REQUEST_URI']);
-		$query = isset($parts['query']) ? $parts['query'] : '';
-		$uri   = isset($parts['path']) ? $parts['path'] : '';
+		// contains a colon followed by a number. So we attach a dummy host since
+		// REQUEST_URI does not include the host. This allows us to parse out the query string and path.
+		$parts = parse_url('http://dummy' . $_SERVER['REQUEST_URI']);
+		$query = $parts['query'] ?? '';
+		$uri   = $parts['path'] ?? '';
 
 		if (isset($_SERVER['SCRIPT_NAME'][0]))
 		{
+			// strip the script name from the beginning of the URI
 			if (strpos($uri, $_SERVER['SCRIPT_NAME']) === 0)
 			{
-				$uri = (string)substr($uri, strlen($_SERVER['SCRIPT_NAME']));
+				$uri = (string) substr($uri, strlen($_SERVER['SCRIPT_NAME']));
 			}
+			// if the script is nested, strip the parent folder & script from the URI
+			elseif (strpos($uri, $_SERVER['SCRIPT_NAME']) > 0)
+			{
+				$uri = (string) substr($uri, strpos($uri, $_SERVER['SCRIPT_NAME']) + strlen($_SERVER['SCRIPT_NAME']));
+			}
+			// or if index.php is implied
 			elseif (strpos($uri, dirname($_SERVER['SCRIPT_NAME'])) === 0)
 			{
-				$uri = (string)substr($uri, strlen(dirname($_SERVER['SCRIPT_NAME'])));
+				$uri = (string) substr($uri, strlen(dirname($_SERVER['SCRIPT_NAME'])));
 			}
 		}
 
-		// This section ensures that even on servers that require the URI to be in the query string (Nginx) a correct
+		// This section ensures that even on servers that require the URI to contain the query string (Nginx) a correct
 		// URI is found, and also fixes the QUERY_STRING getServer var and $_GET array.
 		if (trim($uri, '/') === '' && strncmp($query, '/', 1) === 0)
 		{
 			$query                   = explode('?', $query, 2);
 			$uri                     = $query[0];
-			$_SERVER['QUERY_STRING'] = isset($query[1]) ? $query[1] : '';
+			$_SERVER['QUERY_STRING'] = $query[1] ?? '';
 		}
 		else
 		{
@@ -611,11 +771,11 @@ class IncomingRequest extends Request
 	 *
 	 * Will parse QUERY_STRING and automatically detect the URI from it.
 	 *
-	 * @return    string
+	 * @return string
 	 */
 	protected function parseQueryString(): string
 	{
-		$uri = isset($_SERVER['QUERY_STRING']) ? $_SERVER['QUERY_STRING'] : @getenv('QUERY_STRING');
+		$uri = $_SERVER['QUERY_STRING'] ?? @getenv('QUERY_STRING');
 
 		if (trim($uri, '/') === '')
 		{
@@ -624,7 +784,7 @@ class IncomingRequest extends Request
 		elseif (strncmp($uri, '/', 1) === 0)
 		{
 			$uri                     = explode('?', $uri, 2);
-			$_SERVER['QUERY_STRING'] = isset($uri[1]) ? $uri[1] : '';
+			$_SERVER['QUERY_STRING'] = $uri[1] ?? '';
 			$uri                     = $uri[0];
 		}
 
@@ -638,13 +798,13 @@ class IncomingRequest extends Request
 	/**
 	 * Remove relative directory (../) and multi slashes (///)
 	 *
-	 * Do some final cleaning of the URI and return it, currently only used in self::_parse_request_uri()
+	 * Do some final cleaning of the URI and return it, currently only used in static::_parse_request_uri()
 	 *
-	 * @param    string $url
+	 * @param string $uri
 	 *
-	 * @return    string
+	 * @return string
 	 */
-	protected function removeRelativeDirectory($uri)
+	protected function removeRelativeDirectory(string $uri): string
 	{
 		$uris = [];
 		$tok  = strtok($uri, '/');

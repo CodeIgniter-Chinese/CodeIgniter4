@@ -1,45 +1,65 @@
 <?php namespace CodeIgniter\Database\Builder;
 
 use CodeIgniter\Database\BaseBuilder;
-use CodeIgniter\Database\MockConnection;
-use CodeIgniter\Database\MockQuery;
+use CodeIgniter\Test\Mock\MockQuery;
+use CodeIgniter\Test\Mock\MockConnection;
 
-class UpdateTest extends \CIUnitTestCase
+class UpdateTest extends \CodeIgniter\Test\CIUnitTestCase
 {
 	protected $db;
 
 	//--------------------------------------------------------------------
 
-	public function setUp()
+	protected function setUp(): void
 	{
+		parent::setUp();
+
 		$this->db = new MockConnection([]);
 	}
 
 	//--------------------------------------------------------------------
-	
-	public function testUpdate() 
-	{
-	    $builder = new BaseBuilder('jobs', $this->db);
-		
-		$builder->where('id', 1)->update(['name' => 'Programmer'], null, null, true);
 
-		$expectedSQL = "UPDATE \"jobs\" SET \"name\" = :name WHERE \"id\" = :id";
-		$expectedBinds = ['id' => 1, 'name' => 'Programmer'];
+	public function testUpdate()
+	{
+		$builder = new BaseBuilder('jobs', $this->db);
+
+		$builder->testMode()->where('id', 1)->update(['name' => 'Programmer'], null, null);
+
+		$expectedSQL   = 'UPDATE "jobs" SET "name" = \'Programmer\' WHERE "id" = 1';
+		$expectedBinds = [
+			'id'   => [
+				1,
+				true,
+			],
+			'name' => [
+				'Programmer',
+				true,
+			],
+		];
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
 		$this->assertEquals($expectedBinds, $builder->getBinds());
 	}
-	
+
 	//--------------------------------------------------------------------
 
 	public function testUpdateInternalWhereAndLimit()
 	{
 		$builder = new BaseBuilder('jobs', $this->db);
 
-		$builder->update(['name' => 'Programmer'], ['id' => 1], 5, true);
+		$builder->testMode()->update(['name' => 'Programmer'], ['id' => 1], 5);
 
-		$expectedSQL = "UPDATE \"jobs\" SET \"name\" = :name WHERE \"id\" = :id LIMIT 5";
-		$expectedBinds = ['id' => 1, 'name' => 'Programmer'];
+		$expectedSQL   = 'UPDATE "jobs" SET "name" = \'Programmer\' WHERE "id" = 1  LIMIT 5';
+		$expectedBinds = [
+			'id'   => [
+				1,
+				true,
+			],
+			'name' => [
+				'Programmer',
+				true,
+			],
+		];
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
 		$this->assertEquals($expectedBinds, $builder->getBinds());
@@ -51,10 +71,19 @@ class UpdateTest extends \CIUnitTestCase
 	{
 		$builder = new BaseBuilder('jobs', $this->db);
 
-		$builder->set('name', 'Programmer')->where('id', 1)->update(null, null, null, true);
+		$builder->testMode()->set('name', 'Programmer')->where('id', 1)->update(null, null, null);
 
-		$expectedSQL = "UPDATE \"jobs\" SET \"name\" = :name WHERE \"id\" = :id";
-		$expectedBinds = ['id' => 1, 'name' => 'Programmer'];
+		$expectedSQL   = 'UPDATE "jobs" SET "name" = \'Programmer\' WHERE "id" = 1';
+		$expectedBinds = [
+			'id'   => [
+				1,
+				true,
+			],
+			'name' => [
+				'Programmer',
+				true,
+			],
+		];
 
 		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
 		$this->assertEquals($expectedBinds, $builder->getBinds());
@@ -66,7 +95,7 @@ class UpdateTest extends \CIUnitTestCase
 	{
 		$builder = new BaseBuilder('jobs', $this->db);
 
-		$this->setExpectedException('CodeIgniter\DatabaseException', 'You must use the "set" method to update an entry.');
+		$this->expectException('CodeIgniter\Database\Exceptions\DatabaseException', 'You must use the "set" method to update an entry.');
 
 		$builder->update(null, null, null, true);
 	}
@@ -77,32 +106,36 @@ class UpdateTest extends \CIUnitTestCase
 	{
 		$builder = new BaseBuilder('jobs', $this->db);
 
-		$updateData = array(
-			['id' => 2, 'name' => 'Comedian', 'description' => 'Theres something in your teeth'],
-			['id' => 3, 'name' => 'Cab Driver', 'description' => 'Iam yellow'],
-		);
+		$updateData = [
+			[
+				'id'          => 2,
+				'name'        => 'Comedian',
+				'description' => 'Theres something in your teeth',
+			],
+			[
+				'id'          => 3,
+				'name'        => 'Cab Driver',
+				'description' => 'Iam yellow',
+			],
+		];
 
 		$this->db->shouldReturn('execute', 1)
-		         ->shouldReturn('affectedRows', 1);
+				 ->shouldReturn('affectedRows', 1);
 
 		$builder->updateBatch($updateData, 'id');
 
-		$query = $this->db->getQueries();
+		$query = $this->db->getLastQuery();
 
-		$this->assertTrue(is_array($query));
-
-		$query = $query[0];
-
-		$this->assertTrue($query instanceof MockQuery);
+		$this->assertInstanceOf(MockQuery::class, $query);
 
 		$expected = 'UPDATE "jobs" SET "name" = CASE 
-WHEN "id" = :id THEN :name
-WHEN "id" = :id0 THEN :name0
+WHEN "id" = :id: THEN :name:
+WHEN "id" = :id0: THEN :name0:
 ELSE "name" END, "description" = CASE 
-WHEN "id" = :id THEN :description
-WHEN "id" = :id0 THEN :description0
+WHEN "id" = :id: THEN :description:
+WHEN "id" = :id0: THEN :description0:
 ELSE "description" END
-WHERE "id" IN(:id,:id0)';
+WHERE "id" IN(:id:,:id0:)';
 
 		$this->assertEquals($expected, $query->getOriginalQuery() );
 
@@ -124,7 +157,8 @@ WHERE "id" IN(2,3)';
 	{
 		$builder = new BaseBuilder('jobs', $this->db);
 
-		$this->setExpectedException('CodeIgniter\DatabaseException', 'You must use the "set" method to update an entry.');
+		$this->expectException('\CodeIgniter\Database\Exceptions\DatabaseException');
+		$this->expectExceptionMessage('You must use the "set" method to update an entry.');
 
 		$builder->updateBatch(null, 'id');
 	}
@@ -135,7 +169,8 @@ WHERE "id" IN(2,3)';
 	{
 		$builder = new BaseBuilder('jobs', $this->db);
 
-		$this->setExpectedException('CodeIgniter\DatabaseException', 'You must specify an index to match on for batch updates.');
+		$this->expectException('\CodeIgniter\Database\Exceptions\DatabaseException');
+		$this->expectExceptionMessage('You must specify an index to match on for batch updates.');
 
 		$builder->updateBatch([]);
 	}
@@ -146,11 +181,140 @@ WHERE "id" IN(2,3)';
 	{
 		$builder = new BaseBuilder('jobs', $this->db);
 
-		$this->setExpectedException('CodeIgniter\DatabaseException', 'updateBatch() called with no data');
+		$this->expectException('\CodeIgniter\Database\Exceptions\DatabaseException');
+		$this->expectExceptionMessage('updateBatch() called with no data');
 
 		$builder->updateBatch([], 'id');
 	}
 
 	//--------------------------------------------------------------------
 
+	public function testUpdateWithWhereSameColumn()
+	{
+		$builder = new BaseBuilder('jobs', $this->db);
+
+		$builder->testMode()->update(['name' => 'foobar'], ['name' => 'Programmer'], null);
+
+		$expectedSQL   = 'UPDATE "jobs" SET "name" = \'foobar\' WHERE "name" = \'Programmer\'';
+		$expectedBinds = [
+			'name'  => [
+				'foobar',
+				true,
+			],
+			'name0' => [
+				'Programmer',
+				true,
+			],
+		];
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
+		$this->assertEquals($expectedBinds, $builder->getBinds());
+	}
+
+	//--------------------------------------------------------------------
+
+	public function testUpdateWithWhereSameColumn2()
+	{
+		// calling order: set() -> where()
+		$builder = new BaseBuilder('jobs', $this->db);
+
+		$builder->testMode()
+			->set('name', 'foobar')
+			->where('name', 'Programmer')
+			->update(null, null, null);
+
+		$expectedSQL   = 'UPDATE "jobs" SET "name" = \'foobar\' WHERE "name" = \'Programmer\'';
+		$expectedBinds = [
+			'name'  => [
+				'foobar',
+				true,
+			],
+			'name0' => [
+				'Programmer',
+				true,
+			],
+		];
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
+		$this->assertEquals($expectedBinds, $builder->getBinds());
+	}
+
+	//--------------------------------------------------------------------
+
+	public function testUpdateWithWhereSameColumn3()
+	{
+		// calling order: where() -> set() in update()
+		$builder = new BaseBuilder('jobs', $this->db);
+
+		$builder->testMode()
+			->where('name', 'Programmer')
+			->update(['name' => 'foobar'], null, null);
+
+		$expectedSQL   = 'UPDATE "jobs" SET "name" = \'foobar\' WHERE "name" = \'Programmer\'';
+		$expectedBinds = [
+			'name'  => [
+				'Programmer',
+				true,
+			],
+			'name0' => [
+				'foobar',
+				true,
+			],
+		];
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
+		$this->assertEquals($expectedBinds, $builder->getBinds());
+	}
+
+	//--------------------------------------------------------------------
+
+	// @see https://codeigniter4.github.io/CodeIgniter4/database/query_builder.html#updating-data
+	public function testSetWithoutEscape()
+	{
+		$builder = new BaseBuilder('mytable', $this->db);
+
+		$builder->testMode()
+			->set('field', 'field+1', false)
+			->where('id', 2)
+			->update(null, null, null);
+
+		$expectedSQL   = 'UPDATE "mytable" SET field = field+1 WHERE "id" = 2';
+		$expectedBinds = [
+			'id' => [
+				2,
+				true,
+			],
+		];
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
+		$this->assertEquals($expectedBinds, $builder->getBinds());
+	}
+
+	//--------------------------------------------------------------------
+
+	public function testSetWithAndWithoutEscape()
+	{
+		$builder = new BaseBuilder('mytable', $this->db);
+
+		$builder->testMode()
+			->set('foo', 'bar')
+			->set('field', 'field+1', false)
+			->where('id', 2)
+			->update(null, null, null);
+
+		$expectedSQL   = 'UPDATE "mytable" SET "foo" = \'bar\', field = field+1 WHERE "id" = 2';
+		$expectedBinds = [
+			'foo' => [
+				'bar',
+				true,
+			],
+			'id'  => [
+				2,
+				true,
+			],
+		];
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledUpdate()));
+		$this->assertEquals($expectedBinds, $builder->getBinds());
+	}
 }

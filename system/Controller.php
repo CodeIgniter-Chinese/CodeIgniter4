@@ -1,4 +1,4 @@
-<?php namespace CodeIgniter;
+<?php
 
 /**
  * CodeIgniter
@@ -7,7 +7,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,19 +28,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	CodeIgniter Dev Team
- * @copyright	Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
- * @since	Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
 
+namespace CodeIgniter;
+
+use Config\Services;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
-use CodeIgniter\Services;
-use CodeIgniter\Log\Logger;
+use CodeIgniter\Validation\Validation;
+use CodeIgniter\Validation\Exceptions\ValidationException;
+use Psr\Log\LoggerInterface;
 
 /**
  * Class Controller
@@ -48,22 +53,34 @@ use CodeIgniter\Log\Logger;
  */
 class Controller
 {
+
+	/**
+	 * An array of helpers to be automatically loaded
+	 * upon class instantiation.
+	 *
+	 * @var array
+	 */
+	protected $helpers = [];
+
+	//--------------------------------------------------------------------
+
 	/**
 	 * Instance of the main Request object.
 	 *
-	 * @var RequestInterface
+	 * @var HTTP\IncomingRequest
 	 */
 	protected $request;
 
 	/**
 	 * Instance of the main response object.
 	 *
-	 * @var ResponseInterface
+	 * @var HTTP\Response
 	 */
 	protected $response;
 
 	/**
 	 * Instance of logger to use.
+	 *
 	 * @var Log\Logger
 	 */
 	protected $logger;
@@ -72,28 +89,44 @@ class Controller
 	 * Whether HTTPS access should be enforced
 	 * for all methods in this controller.
 	 *
-	 * @var int  Number of seconds to set HSTS header
+	 * @var integer  Number of seconds to set HSTS header
 	 */
 	protected $forceHTTPS = 0;
 
+	/**
+	 * Once validation has been run,
+	 * will hold the Validation instance.
+	 *
+	 * @var Validation
+	 */
+	protected $validator;
+
 	//--------------------------------------------------------------------
 
-	public function __construct(RequestInterface $request, ResponseInterface $response, Logger $logger = null)
+	/**
+	 * Constructor.
+	 *
+	 * @param RequestInterface         $request
+	 * @param ResponseInterface        $response
+	 * @param \Psr\Log\LoggerInterface $logger
+	 *
+	 * @throws \CodeIgniter\HTTP\Exceptions\HTTPException
+	 */
+	public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
 	{
-	    $this->request = $request;
-
+		$this->request  = $request;
 		$this->response = $response;
-
-		$this->logger = is_null($logger) ? Services::logger(true) : $logger;
-
-		$this->logger->info('Controller "'.get_class($this).'" loaded.');
+		$this->logger   = $logger;
+		$this->logger->info('Controller "' . get_class($this) . '" loaded.');
 
 		if ($this->forceHTTPS > 0)
 		{
 			$this->forceHTTPS($this->forceHTTPS);
 		}
+
+		$this->loadHelpers();
 	}
-	
+
 	//--------------------------------------------------------------------
 
 	/**
@@ -102,15 +135,92 @@ class Controller
 	 * will happen back to this method and HSTS header will be sent
 	 * to have modern browsers transform requests automatically.
 	 *
-	 * @param int $duration The number of seconds this link should be
-	 *                      considered secure for. Only with HSTS header.
-	 *                      Default value is 1 year.
+	 * @param integer $duration The number of seconds this link should be
+	 *                          considered secure for. Only with HSTS header.
+	 *                          Default value is 1 year.
+	 *
+	 * @throws \CodeIgniter\HTTP\Exceptions\HTTPException
 	 */
-	public function forceHTTPS(int $duration = 31536000)
+	protected function forceHTTPS(int $duration = 31536000)
 	{
-	    force_https($duration, $this->request, $this->response);
+		force_https($duration, $this->request, $this->response);
 	}
 
 	//--------------------------------------------------------------------
-	
+
+	/**
+	 * Provides a simple way to tie into the main CodeIgniter class
+	 * and tell it how long to cache the current page for.
+	 *
+	 * @param integer $time
+	 */
+	protected function cachePage(int $time)
+	{
+		CodeIgniter::cache($time);
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Handles "auto-loading" helper files.
+	 */
+	protected function loadHelpers()
+	{
+		if (empty($this->helpers))
+		{
+			return;
+		}
+
+		foreach ($this->helpers as $helper)
+		{
+			helper($helper);
+		}
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * A shortcut to performing validation on input data. If validation
+	 * is not successful, a $errors property will be set on this class.
+	 *
+	 * @param array|string $rules
+	 * @param array        $messages An array of custom error messages
+	 *
+	 * @return boolean
+	 */
+	protected function validate($rules, array $messages = []): bool
+	{
+		$this->validator = Services::validation();
+
+		// If you replace the $rules array with the name of the group
+		if (is_string($rules))
+		{
+			$validation = new \Config\Validation();
+
+			// If the rule wasn't found in the \Config\Validation, we
+			// should throw an exception so the developer can find it.
+			if (! isset($validation->$rules))
+			{
+				throw ValidationException::forRuleNotFound($rules);
+			}
+
+			// If no error message is defined, use the error message in the Config\Validation file
+			if (! $messages)
+			{
+				$errorName = $rules . '_errors';
+				$messages  = $validation->$errorName ?? [];
+			}
+
+			$rules = $validation->$rules;
+		}
+
+		$success = $this->validator
+			->withRequest($this->request)
+			->setRules($rules, $messages)
+			->run();
+
+		return $success;
+	}
+
+	//--------------------------------------------------------------------
 }

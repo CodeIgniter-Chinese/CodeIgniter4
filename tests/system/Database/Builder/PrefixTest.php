@@ -1,16 +1,17 @@
 <?php namespace CodeIgniter\Database\Builder;
 
-use CodeIgniter\Database\BaseBuilder;
-use CodeIgniter\Database\MockConnection;
+use CodeIgniter\Test\Mock\MockConnection;
 
-class PrefixTest extends \CIUnitTestCase
+class PrefixTest extends \CodeIgniter\Test\CIUnitTestCase
 {
 	protected $db;
 
 	//--------------------------------------------------------------------
 
-	public function setUp()
+	protected function setUp(): void
 	{
+		parent::setUp();
+
 		$this->db = new MockConnection(['DBPrefix' => 'ci_']);
 	}
 
@@ -24,5 +25,20 @@ class PrefixTest extends \CIUnitTestCase
 	}
 
 	//--------------------------------------------------------------------
+
+	public function testPrefixesSetOnTableNamesWithWhereClause()
+	{
+		$builder = $this->db->table('users');
+
+		$where = 'users.created_at < users.updated_at';
+
+		$expectedSQL   = 'SELECT * FROM "ci_users" WHERE "ci_users"."created_at" < "ci_users"."updated_at"';
+		$expectedBinds = [];
+
+		$builder->where($where);
+
+		$this->assertEquals($expectedSQL, str_replace("\n", ' ', $builder->getCompiledSelect()));
+		$this->assertSame($expectedBinds, $builder->getBinds());
+	}
 
 }

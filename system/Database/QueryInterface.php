@@ -1,7 +1,46 @@
-<?php namespace CodeIgniter\Database;
+<?php
 
 /**
- * Interface StatementInterface
+ * CodeIgniter
+ *
+ * An open source application development framework for PHP
+ *
+ * This content is released under the MIT License (MIT)
+ *
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
+ * @filesource
+ */
+
+namespace CodeIgniter\Database;
+
+/**
+ * Interface QueryInterface
  *
  * Represents a single statement that can be executed against the database.
  * Statements are platform-specific and can handle binding of binds.
@@ -10,14 +49,17 @@
  */
 interface QueryInterface
 {
+
 	/**
 	 * Sets the raw query string to use for this statement.
 	 *
-	 * @param string $sql
+	 * @param string  $sql
+	 * @param mixed   $binds
+	 * @param boolean $setEscape
 	 *
 	 * @return mixed
 	 */
-	public function setQuery(string $sql, $binds = null);
+	public function setQuery(string $sql, $binds = null, bool $setEscape = true);
 
 	//--------------------------------------------------------------------
 
@@ -36,8 +78,8 @@ interface QueryInterface
 	 * for it's start and end values. If no end value is present, will
 	 * use the current time to determine total duration.
 	 *
-	 * @param int      $start
-	 * @param int|null $end
+	 * @param float $start
+	 * @param float $end
 	 *
 	 * @return mixed
 	 */
@@ -49,16 +91,19 @@ interface QueryInterface
 	 * Returns the duration of this query during execution, or null if
 	 * the query has not been executed yet.
 	 *
-	 * @param int    $decimals  The accuracy of the returned time.
+	 * @param integer $decimals The accuracy of the returned time.
 	 *
-	 * @return mixed
+	 * @return string
 	 */
-	public function getDuration(int $decimals = 6);
+	public function getDuration(int $decimals = 6): string;
 
 	//--------------------------------------------------------------------
 
 	/**
 	 * Stores the error description that happened for this query.
+	 *
+	 * @param integer $code
+	 * @param string  $error
 	 */
 	public function setError(int $code, string $error);
 
@@ -67,7 +112,7 @@ interface QueryInterface
 	/**
 	 * Reports whether this statement created an error not.
 	 *
-	 * @return bool
+	 * @return boolean
 	 */
 	public function hasError(): bool;
 
@@ -76,7 +121,7 @@ interface QueryInterface
 	/**
 	 * Returns the error code created while executing this statement.
 	 *
-	 * @return string
+	 * @return integer
 	 */
 	public function getErrorCode(): int;
 
@@ -94,7 +139,7 @@ interface QueryInterface
 	/**
 	 * Determines if the statement is a write-type query or not.
 	 *
-	 * @return bool
+	 * @return boolean
 	 */
 	public function isWriteType(): bool;
 
@@ -111,5 +156,4 @@ interface QueryInterface
 	public function swapPrefix(string $orig, string $swap);
 
 	//--------------------------------------------------------------------
-
 }

@@ -1,4 +1,4 @@
-<?php namespace CodeIgniter\Router;
+<?php
 
 /**
  * CodeIgniter
@@ -7,7 +7,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,14 +28,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	CodeIgniter Dev Team
- * @copyright	Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
- * @since	Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
+
+namespace CodeIgniter\Router;
 
 /**
  * Interface RouteCollectionInterface
@@ -54,12 +57,13 @@ interface RouteCollectionInterface
 	/**
 	 * Adds a single route to the collection.
 	 *
-	 * @param string $from
+	 * @param string       $from
 	 * @param array|string $to
+	 * @param array        $options
 	 *
 	 * @return mixed
 	 */
-	public function add(string $from, $to);
+	public function add(string $from, $to, array $options = null);
 
 	//--------------------------------------------------------------------
 
@@ -76,7 +80,7 @@ interface RouteCollectionInterface
 	 *
 	 * @return mixed
 	 */
-	public function addPlaceholder(string $placeholder, string $pattern=null);
+	public function addPlaceholder($placeholder, string $pattern = null);
 
 	//--------------------------------------------------------------------
 
@@ -123,7 +127,7 @@ interface RouteCollectionInterface
 	 * find words and meaning in the URI for better SEO. But it
 	 * doesn't work well with PHP method names....
 	 *
-	 * @param bool $value
+	 * @param boolean $value
 	 *
 	 * @return mixed
 	 */
@@ -139,9 +143,9 @@ interface RouteCollectionInterface
 	 *
 	 * If FALSE, will stop searching and do NO automatic routing.
 	 *
-	 * @param bool $value
+	 * @param boolean $value
 	 *
-	 * @return RouteCollection
+	 * @return RouteCollectionInterface
 	 */
 	public function setAutoRoute(bool $value): self;
 
@@ -156,7 +160,7 @@ interface RouteCollectionInterface
 	 *
 	 * @param callable|null $callable
 	 *
-	 * @return $this
+	 * @return RouteCollectionInterface
 	 */
 	public function set404Override($callable = null): self;
 
@@ -168,11 +172,9 @@ interface RouteCollectionInterface
 	 *
 	 * @return string|\Closure|null
 	 */
-	public function get4040Override();
+	public function get404Override();
 
 	//--------------------------------------------------------------------
-
-
 
 	/**
 	 * Returns the name of the default controller. With Namespace.
@@ -193,9 +195,7 @@ interface RouteCollectionInterface
 	//--------------------------------------------------------------------
 
 	/**
-	 * Returns the current value of the translateURIDashses setting.
-	 *
-	 * @param bool|false $val
+	 * Returns the current value of the translateURIDashes setting.
 	 *
 	 * @return mixed
 	 */
@@ -206,7 +206,7 @@ interface RouteCollectionInterface
 	/**
 	 * Returns the flag that tells whether to autoRoute URI against Controllers.
 	 *
-	 * @return bool
+	 * @return boolean
 	 */
 	public function shouldAutoRoute();
 
@@ -243,10 +243,12 @@ interface RouteCollectionInterface
 	 *      // Equals 'path/$param1/$param2'
 	 *      reverseRoute('Controller::method', $param1, $param2);
 	 *
-	 * @param string $route
-	 * @param        ...$params
+	 * @param string $search
+	 * @param array  ...$params
+	 *
+	 * @return string|false
 	 */
-	public function reverseRoute(string $search, ...$params): string;
+	public function reverseRoute(string $search, ...$params);
 
 	//--------------------------------------------------------------------
 
@@ -255,7 +257,7 @@ interface RouteCollectionInterface
 	 *
 	 * @param string $from
 	 *
-	 * @return bool
+	 * @return boolean
 	 */
 	public function isRedirect(string $from): bool;
 
@@ -266,10 +268,9 @@ interface RouteCollectionInterface
 	 *
 	 * @param string $from
 	 *
-	 * @return int
+	 * @return integer
 	 */
-	public function getRedirectCode(string $from) : int;
+	public function getRedirectCode(string $from): int;
 
 	//--------------------------------------------------------------------
-
 }

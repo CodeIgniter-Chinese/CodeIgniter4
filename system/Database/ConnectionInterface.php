@@ -1,7 +1,52 @@
-<?php namespace CodeIgniter\Database;
+<?php
 
+/**
+ * CodeIgniter
+ *
+ * An open source application development framework for PHP
+ *
+ * This content is released under the MIT License (MIT)
+ *
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
+ * @filesource
+ */
+
+namespace CodeIgniter\Database;
+
+/**
+ * Interface ConnectionInterface
+ *
+ * @package CodeIgniter\Database
+ */
 interface ConnectionInterface
 {
+
 	/**
 	 * Initializes the database connection/settings.
 	 *
@@ -14,18 +59,19 @@ interface ConnectionInterface
 	/**
 	 * Connect to the database.
 	 *
+	 * @param  boolean $persistent
 	 * @return mixed
 	 */
-	public function connect($persistant = false);
+	public function connect(bool $persistent = false);
 
 	//--------------------------------------------------------------------
 
 	/**
-	 * Create a persistant database connection.
+	 * Create a persistent database connection.
 	 *
 	 * @return mixed
 	 */
-	public function persistantConnect();
+	public function persistentConnect();
 
 	//--------------------------------------------------------------------
 
@@ -49,7 +95,7 @@ interface ConnectionInterface
 	 *
 	 * @return mixed
 	 */
-	public function getConnection(string $alias=null);
+	public function getConnection(string $alias = null);
 
 	//--------------------------------------------------------------------
 
@@ -83,29 +129,20 @@ interface ConnectionInterface
 	//--------------------------------------------------------------------
 
 	/**
-	 * The name of the platform in use (mysqli, mssql, etc)
+	 * The name of the platform in use (MySQLi, mssql, etc)
 	 *
-	 * @return mixed
+	 * @return string
 	 */
-	public function getPlatform();
+	public function getPlatform(): string;
 
 	//--------------------------------------------------------------------
 
 	/**
 	 * Returns a string containing the version of the database being used.
 	 *
-	 * @return mixed
+	 * @return string
 	 */
-	public function getVersion();
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Specifies whether this connection should keep queries objects or not.
-	 *
-	 * @param bool $doLog
-	 */
-	public function saveQueries($doLog = false);
+	public function getVersion(): string;
 
 	//--------------------------------------------------------------------
 
@@ -118,7 +155,7 @@ interface ConnectionInterface
 	 * queries if needed.
 	 *
 	 * @param string $sql
-	 * @param array  ...$binds
+	 * @param mixed  ...$binds
 	 *
 	 * @return mixed
 	 */
@@ -142,30 +179,11 @@ interface ConnectionInterface
 	/**
 	 * Returns an instance of the query builder for this connection.
 	 *
-	 * @param string|array $tableName
+	 * @param string|array $tableName Table name.
 	 *
-	 * @return QueryBuilder
+	 * @return BaseBuilder Builder.
 	 */
 	public function table($tableName);
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Returns an array containing all of the
-	 *
-	 * @return array
-	 */
-	public function getQueries(): array;
-
-	//--------------------------------------------------------------------
-
-	/**
-	 * Returns the total number of queries that have been performed
-	 * on this connection.
-	 *
-	 * @return mixed
-	 */
-	public function getQueryCount();
 
 	//--------------------------------------------------------------------
 
@@ -184,7 +202,7 @@ interface ConnectionInterface
 	 * Escapes data based on type.
 	 * Sets boolean and null types.
 	 *
-	 * @param $str
+	 * @param mixed $str
 	 *
 	 * @return mixed
 	 */
@@ -204,5 +222,4 @@ interface ConnectionInterface
 	public function callFunction(string $functionName, ...$params);
 
 	//--------------------------------------------------------------------
-
 }

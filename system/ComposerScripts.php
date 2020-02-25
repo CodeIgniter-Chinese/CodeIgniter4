@@ -1,4 +1,4 @@
-<?php namespace CodeIgniter;
+<?php
 
 /**
  * CodeIgniter
@@ -7,7 +7,8 @@
  *
  * This content is released under the MIT License (MIT)
  *
- * Copyright (c) 2014 - 2016, British Columbia Institute of Technology
+ * Copyright (c) 2014-2019 British Columbia Institute of Technology
+ * Copyright (c) 2019-2020 CodeIgniter Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,14 +28,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	CodeIgniter Dev Team
- * @copyright	Copyright (c) 2014 - 2016, British Columbia Institute of Technology (http://bcit.ca/)
- * @license	http://opensource.org/licenses/MIT	MIT License
- * @link	http://codeigniter.com
- * @since	Version 3.0.0
+ * @package    CodeIgniter
+ * @author     CodeIgniter Dev Team
+ * @copyright  2019-2020 CodeIgniter Foundation
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link       https://codeigniter.com
+ * @since      Version 4.0.0
  * @filesource
  */
+
+namespace CodeIgniter;
+
+use ReflectionClass;
 
 /**
  * ComposerScripts
@@ -45,47 +50,41 @@
  * download
  *
  * @codeCoverageIgnore
- * @package CodeIgniter
+ * @package            CodeIgniter
  */
 class ComposerScripts
 {
 	/**
+	 * Base path to use.
+	 *
+	 * @var type
+	 */
+	protected static $basePath = 'ThirdParty/';
+
+	/**
 	 * After composer install/update, this is called to move
 	 * the bare-minimum required files for our dependencies
 	 * to appropriate locations.
+	 *
+	 * @throws \ReflectionException
 	 */
 	public static function postUpdate()
 	{
-		/*
-		 * Zend/Escaper
-		 */
-		if (file_exists('vendor/zendframework/zend-escaper/src/Escaper.php'))
-		{
-			if (! is_dir('system/View/Exception'))
-			{
-				mkdir('system/View/Exception', 0755);
-			}
-
-			$files = [
-				'./vendor/zendframework/zend-escaper/src/Exception/ExceptionInterface.php' => './system/View/Exception/ExceptionInterface.php',
-				'vendor/zendframework/zend-escaper/src/Exception/InvalidArgumentException.php' => 'system/View/Exception/InvalidArgumentException.php',
-				'vendor/zendframework/zend-escaper/src/Exception/RuntimeException.php' => 'system/View/Exception/RuntimeException.php',
-				'vendor/zendframework/zend-escaper/src/Escaper.php' => 'system/View/Escaper.php'
-			];
-
-			foreach ($files as $source => $dest)
-			{
-				if (! self::moveFile($source, $dest))
-				{
-					die('Error moving: '. $source);
-				}
-			}
-		}
+		static::moveEscaper();
+		static::moveKint();
 	}
 
 	//--------------------------------------------------------------------
 
-	protected static function moveFile(string $source, string $destination)
+	/**
+	 * Move a file.
+	 *
+	 * @param string $source
+	 * @param string $destination
+	 *
+	 * @return boolean
+	 */
+	protected static function moveFile(string $source, string $destination): bool
 	{
 		$source = realpath($source);
 
@@ -99,9 +98,147 @@ class ComposerScripts
 			return false;
 		}
 
-		return rename($source, $destination);
+		return copy($source, $destination);
 	}
 
 	//--------------------------------------------------------------------
 
+	/**
+	 * Determine file path of a class.
+	 *
+	 * @param string $class
+	 *
+	 * @return string
+	 * @throws \ReflectionException
+	 */
+	protected static function getClassFilePath(string $class)
+	{
+		$reflector = new ReflectionClass($class);
+
+		return $reflector->getFileName();
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * A recursive remove directory method.
+	 *
+	 * @param $dir
+	 */
+	protected static function removeDir($dir)
+	{
+		if (is_dir($dir))
+		{
+			$objects = scandir($dir);
+			foreach ($objects as $object)
+			{
+				if ($object !== '.' && $object !== '..')
+				{
+					if (filetype($dir . '/' . $object) === 'dir')
+					{
+						static::removeDir($dir . '/' . $object);
+					}
+					else
+					{
+						unlink($dir . '/' . $object);
+					}
+				}
+			}
+			reset($objects);
+			rmdir($dir);
+		}
+	}
+
+	protected static function copyDir($source, $dest)
+	{
+		$dir = opendir($source);
+		@mkdir($dest);
+
+		while (false !== ( $file = readdir($dir)))
+		{
+			if (( $file !== '.' ) && ( $file !== '..' ))
+			{
+				if (is_dir($source . '/' . $file))
+				{
+					static::copyDir($source . '/' . $file, $dest . '/' . $file);
+				}
+				else
+				{
+					copy($source . '/' . $file, $dest . '/' . $file);
+				}
+			}
+		}
+
+		closedir($dir);
+	}
+
+	/**
+	 * Moves the Laminas Escaper files into our base repo so that it's
+	 * available for packaged releases where the users don't user Composer.
+	 *
+	 * @throws \ReflectionException
+	 */
+	public static function moveEscaper()
+	{
+		if (class_exists('\\Laminas\\Escaper\\Escaper') && is_file(static::getClassFilePath('\\Laminas\\Escaper\\Escaper')))
+		{
+			$base = basename(__DIR__) . '/' . static::$basePath . 'Escaper';
+
+			foreach ([$base, $base . '/Exception'] as $path)
+			{
+				if (! is_dir($path))
+				{
+					mkdir($path, 0755);
+				}
+			}
+
+			$files = [
+				static::getClassFilePath('\\Laminas\\Escaper\\Exception\\ExceptionInterface')       => $base . '/Exception/ExceptionInterface.php',
+				static::getClassFilePath('\\Laminas\\Escaper\\Exception\\InvalidArgumentException') => $base . '/Exception/InvalidArgumentException.php',
+				static::getClassFilePath('\\Laminas\\Escaper\\Exception\\RuntimeException')         => $base . '/Exception/RuntimeException.php',
+				static::getClassFilePath('\\Laminas\\Escaper\\Escaper')                             => $base . '/Escaper.php',
+			];
+
+			foreach ($files as $source => $dest)
+			{
+				if (! static::moveFile($source, $dest))
+				{
+					die('Error moving: ' . $source);
+				}
+			}
+		}
+	}
+
+	//--------------------------------------------------------------------
+
+	/**
+	 * Moves the Kint file into our base repo so that it's
+	 * available for packaged releases where the users don't user Composer.
+	 */
+	public static function moveKint()
+	{
+		$dir = 'vendor/kint-php/kint/src';
+
+		if (is_dir($dir))
+		{
+			$base = basename(__DIR__) . '/' . static::$basePath . 'Kint';
+
+			// Remove the contents of the previous Kint folder, if any.
+			if (is_dir($base))
+			{
+				static::removeDir($base);
+			}
+
+			// Create Kint if it doesn't exist already
+			if (! is_dir($base))
+			{
+				mkdir($base, 0755);
+			}
+
+			static::copyDir($dir, $base);
+			static::copyDir($dir . '/../resources', $base . '/resources');
+			copy($dir . '/../init.php', $base . '/init.php');
+			copy($dir . '/../init_helpers.php', $base . '/init_helpers.php');
+		}
+	}
 }
